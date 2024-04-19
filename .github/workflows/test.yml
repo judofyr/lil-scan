@@ -1,0 +1,22 @@
+name: "Tests"
+
+on:
+  push:
+  schedule:
+  - cron: "0 3 * * 5"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - uses: goto-bus-stop/setup-zig@v1
+        with:
+          version: master
+      - name: Formatting
+        run: zig fmt --check src/*.zig
+      - name: Tests
+        run: zig build test
