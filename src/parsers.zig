@@ -149,7 +149,7 @@ test "whenUtf8" {
 }
 
 pub const msgIntegerOverflow = &diag.Message{
-    .text = "Integer is too large",
+    .text = "Integer is too large.",
 };
 
 fn integerAddDigit(comptime T: type, result: *T, digit: i8) !void {

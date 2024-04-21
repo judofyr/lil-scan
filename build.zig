@@ -15,6 +15,10 @@ pub fn build(b: *std.Build) !void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    const mod = b.addModule("lil-scan", .{
+        .root_source_file = .{ .path = "src/root.zig" },
+    });
+
     const lib = b.addStaticLibrary(.{
         .name = "lil-scan",
         // In this case the main source file is merely a path, however, in more
@@ -61,4 +65,13 @@ pub fn build(b: *std.Build) !void {
     // running the unit tests.
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_lib_unit_tests.step);
+
+    const demo_err = b.addExecutable(.{
+        .name = "lil-demo-err",
+        .root_source_file = .{ .path = "examples/demo-err.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    demo_err.root_module.addImport("lil-scan", mod);
+    b.installArtifact(demo_err);
 }

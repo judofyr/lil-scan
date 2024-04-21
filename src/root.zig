@@ -22,3 +22,16 @@ pub const Scanner = @import("Scanner.zig");
 
 const diag = @import("diag.zig");
 pub const Span = diag.Span;
+pub const Diagnostic = diag.Diagnostic;
+pub const Severity = diag.Severity;
+
+const presentation = @import("presentation.zig");
+pub const PresenterOptions = presentation.PresenterOptions;
+pub const Presenter = presentation.Presenter;
+pub const PresentationItem = presentation.PresentationItem;
+
+const themes = @import("themes.zig");
+pub const Color = themes.Color;
+pub const Formatting = themes.Formatting;
+pub const DefaultTheme = themes.DefaultTheme;
+pub const NoopTheme = themes.NoopTheme;

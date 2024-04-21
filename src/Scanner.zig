@@ -62,7 +62,7 @@ pub fn must(self: *Scanner, result: ParseResult, msg: *const diag.Message) !void
             return error.ParseError;
         },
         .nothing => {
-            self.reportSpan(msg, self.restSpan(0));
+            self.reportSpan(msg, self.restSpan(1));
             return error.ParseError;
         },
     }
