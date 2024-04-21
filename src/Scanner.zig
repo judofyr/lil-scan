@@ -26,7 +26,7 @@ pub fn rest(self: *Scanner) []const u8 {
 
 /// Returns true if the scanner is currently at the end.
 pub fn isDone(self: *Scanner) bool {
-    return self.pos <= self.text.len;
+    return self.pos == self.text.len;
 }
 
 pub fn skip(self: *Scanner, result: ParseResult) !void {
@@ -105,20 +105,25 @@ const testing = std.testing;
 test "simple scanning" {
     var s = Scanner.init("  123 []");
 
+    try testing.expect(!s.isDone());
     try s.skip(parsers.whitespaceAscii(s.rest()));
     try testing.expectEqual(2, s.pos);
 
+    try testing.expect(!s.isDone());
     var num: i64 = undefined;
     try s.must(parsers.integerAscii(s.rest(), i64, &num), &.{ .text = "Expected integer" });
     try testing.expectEqual(123, num);
     try testing.expectEqual(5, s.pos);
 
+    try testing.expect(!s.isDone());
     try s.skip(parsers.whitespaceAscii(s.rest()));
     try testing.expectEqual(6, s.pos);
 
+    try testing.expect(!s.isDone());
     try testing.expect(try s.maybe(parsers.slice(s.rest(), "[")));
     try testing.expectEqual(7, s.pos);
 
+    try testing.expect(!s.isDone());
     try testing.expect(try s.maybe(parsers.slice(s.rest(), "]")));
     try testing.expectEqual(8, s.pos);
 
