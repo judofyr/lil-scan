@@ -36,7 +36,10 @@ try s.skip(lil.whitespaceAscii(s.rest()));
 
 // (5-6)
 var num: i64 = undefined;
-try s.must(lil.integerAscii(s.rest(), i64, &num));
+try s.must(
+   lil.integerAscii(s.rest(), i64, &num),
+   &.{.text = "Expected integer"},
+);
 
 // (7)
 if (try s.maybe(lil.slice(s.rest(), "["))) {

@@ -1,14 +1,21 @@
 const std = @import("std");
 const testing = std.testing;
 
+const diag = @import("diag.zig");
+
 pub const ParseSuccess = struct {
     text: []const u8,
     matched: usize,
 };
 
+pub const ParseFailure = struct {
+    msg: *const diag.Message,
+    len: usize,
+};
+
 pub const ParseResult = union(enum) {
     success: ParseSuccess,
-    failure,
+    failure: ParseFailure,
     nothing,
 
     pub fn from_len(text: []const u8, len: usize) ParseResult {
@@ -80,11 +87,14 @@ test "ascii" {
     try expectSuccess(8, hexAscii("abc0123fg"));
 }
 
-pub fn andNotAscii(result: ParseResult, f: *const fn (ch: u8) bool) ParseResult {
+pub fn andNotAscii(result: ParseResult, f: *const fn (ch: u8) bool, msg: *const diag.Message) ParseResult {
     switch (result) {
         .success => |s| {
             if (s.matched < s.text.len and f(s.text[s.matched])) {
-                return .failure;
+                return .{ .failure = .{
+                    .msg = msg,
+                    .len = s.matched + 1,
+                } };
             }
         },
         else => {},
@@ -96,18 +106,20 @@ pub fn andNotAscii(result: ParseResult, f: *const fn (ch: u8) bool) ParseResult 
 test "andNotAscii" {
     var num: i64 = undefined;
 
+    const msg = &diag.Message{ .text = "Invalid integer" };
+
     {
-        const result = andNotAscii(integerAscii("123abc", i64, &num), std.ascii.isAlphabetic);
-        try testing.expectEqual(.failure, result);
+        const result = andNotAscii(integerAscii("123abc", i64, &num), std.ascii.isAlphabetic, msg);
+        try expectFailure(result);
     }
 
     {
-        const result = andNotAscii(integerAscii("123 abc", i64, &num), std.ascii.isAlphabetic);
+        const result = andNotAscii(integerAscii("123 abc", i64, &num), std.ascii.isAlphabetic, msg);
         try expectSuccess(3, result);
     }
 
     {
-        const result = andNotAscii(integerAscii("123", i64, &num), std.ascii.isAlphabetic);
+        const result = andNotAscii(integerAscii("123", i64, &num), std.ascii.isAlphabetic, msg);
         try expectSuccess(3, result);
     }
 }
@@ -136,6 +148,15 @@ test "whenUtf8" {
     try expectSuccess(6, whenUtf8("æøåabc", isNorwegianSpecific));
 }
 
+pub const msgIntegerOverflow = &diag.Message{
+    .text = "Integer is too large",
+};
+
+fn integerAddDigit(comptime T: type, result: *T, digit: i8) !void {
+    result.* = try std.math.mul(T, result.*, 10);
+    result.* = try std.math.add(T, result.*, @intCast(digit));
+}
+
 pub fn integerAscii(text: []const u8, comptime T: type, result: *T) ParseResult {
     const is_signed = @typeInfo(T).Int.signedness == .signed;
 
@@ -146,12 +167,14 @@ pub fn integerAscii(text: []const u8, comptime T: type, result: *T) ParseResult 
         if (is_signed and idx == 0 and ch == '-') {
             is_neg = true;
         } else if (std.ascii.isDigit(ch)) {
-            result.* = if (std.math.mul(T, result.*, 10)) |r| r else |_| return .failure;
-            if (is_neg) {
-                result.* = if (std.math.sub(T, result.*, @intCast(ch - '0'))) |r| r else |_| return .failure;
-            } else {
-                result.* = if (std.math.add(T, result.*, @intCast(ch - '0'))) |r| r else |_| return .failure;
-            }
+            var digit: i8 = @intCast(ch - '0');
+            if (is_neg) digit = -digit;
+            integerAddDigit(T, result, digit) catch {
+                return .{ .failure = ParseFailure{
+                    .msg = msgIntegerOverflow,
+                    .len = len + 1,
+                } };
+            };
         } else {
             break;
         }
@@ -181,10 +204,10 @@ test "integerAscii" {
     try testing.expectEqual(127, small_num);
 
     // Overflow when adding
-    try testing.expectEqual(.failure, integerAscii("128", i8, &small_num));
+    try expectFailure(integerAscii("128", i8, &small_num));
 
     // Overflow when shifting
-    try testing.expectEqual(.failure, integerAscii("999", i8, &small_num));
+    try expectFailure(integerAscii("999", i8, &small_num));
 
     // Negative number
     try expectSuccess(5, integerAscii("-5329", i64, &num));
@@ -206,6 +229,13 @@ fn expectSuccess(matched: usize, res: ParseResult) !void {
 fn expectNothing(res: ParseResult) !void {
     switch (res) {
         .nothing => {},
+        else => return error.TestExpectedNothing, // LCOV_EXCL_LINE
+    }
+}
+
+fn expectFailure(res: ParseResult) !void {
+    switch (res) {
+        .failure => {},
         else => return error.TestExpectedNothing, // LCOV_EXCL_LINE
     }
 }
