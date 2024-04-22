@@ -31,6 +31,7 @@ const ex_rust1 = lil.PresentationItem{
     .msg = &.{
         .text = "Attempt to shift left with overflow.",
         .code = "E0080",
+        .url = "https://doc.rust-lang.org/error_codes/E0080.html",
     },
     .span = .{
         .line_number = 11,
@@ -48,6 +49,7 @@ const ex_rust2 = lil.PresentationItem{
     .msg = &.{
         .text = "Attempt to divide by zero.",
         .code = "E0080",
+        .url = "https://doc.rust-lang.org/error_codes/E0080.html",
     },
     .span = .{
         .line_number = 12,

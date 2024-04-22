@@ -23,4 +23,5 @@ pub const Message = struct {
     severity: Severity = .err,
     text: []const u8,
     code: ?[]const u8 = null,
+    url: ?[]const u8 = null,
 };

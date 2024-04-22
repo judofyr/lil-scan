@@ -154,6 +154,12 @@ pub const PresentationItem = struct {
             try w.writeAll("\n");
         }
 
+        if (self.msg.url) |url| {
+            try theme.border().writeAll(w, tl.content());
+            try w.print("URL: {s}", .{url});
+            try w.writeAll("\n");
+        }
+
         try theme.border().writeAll(w, tl.close());
         try w.writeAll("\n");
     }
@@ -219,7 +225,7 @@ fn parseHelloWorld(text: []const u8) parsers.ParseResult {
     if (std.ascii.isAlphabetic(text[token.len])) {
         return .{ .failure = .{
             .len = token.len + 1,
-            .msg = &.{ .text = "Unexpected token." },
+            .msg = &.{ .text = "Unexpected token.", .url = "https://example.com/" },
         } };
     }
     return .{ .success = .{ .matched = token.len } };
@@ -438,6 +444,7 @@ test "across lines" {
             \\│ 
             \\│ File: hello.txt
             \\│ Line: 3
+            \\│ URL: https://example.com/
             \\╯
             \\
             ,
