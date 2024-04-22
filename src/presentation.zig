@@ -213,16 +213,26 @@ const testing = std.testing;
 const Scanner = @import("Scanner.zig");
 const parsers = @import("parsers.zig");
 
+fn parseHelloWorld(text: []const u8) parsers.ParseResult {
+    const token = "hello\nworld";
+    if (!std.mem.startsWith(u8, text, "hello\nworld")) return .nothing;
+    if (std.ascii.isAlphabetic(text[token.len])) {
+        return .{ .failure = .{
+            .len = token.len + 1,
+            .msg = &.{ .text = "Unexpected token." },
+        } };
+    }
+    return .{ .success = .{ .matched = token.len } };
+}
+
 fn parseNumbers(s: *Scanner) !void {
     while (true) {
         try s.skip(parsers.whitespaceAscii(s.rest()));
         if (s.isDone()) break;
 
-        try s.skip(parsers.andNotAscii(
-            parsers.slice(s.rest(), "hello\nworld"),
-            std.ascii.isWhitespace,
-            &.{ .text = "Unexpected whitespace." },
-        ));
+        if (try s.maybe(parseHelloWorld(s.rest()))) {
+            try s.skip(parsers.whitespaceAscii(s.rest()));
+        }
 
         var num: i8 = undefined;
         try s.must(
@@ -258,22 +268,22 @@ fn testNumber(case: TestCase) !void {
         var result = std.ArrayList(u8).init(testing.allocator);
         defer result.deinit();
 
-        try item.writeSimple(result.writer(), themes.NoopTheme);
-        try testing.expectEqualStrings(case.simple, result.items);
+        try item.writeExpanded(result.writer(), themes.NoopTheme);
+        try testing.expectEqualStrings(case.expanded, result.items);
 
         result.clearRetainingCapacity();
-        try item.writeSimple(result.writer(), themes.DefaultTheme);
+        try item.writeExpanded(result.writer(), themes.DefaultTheme);
     }
 
     {
         var result = std.ArrayList(u8).init(testing.allocator);
         defer result.deinit();
 
-        try item.writeExpanded(result.writer(), themes.NoopTheme);
-        try testing.expectEqualStrings(case.expanded, result.items);
+        try item.writeSimple(result.writer(), themes.NoopTheme);
+        try testing.expectEqualStrings(case.simple, result.items);
 
         result.clearRetainingCapacity();
-        try item.writeExpanded(result.writer(), themes.DefaultTheme);
+        try item.writeSimple(result.writer(), themes.DefaultTheme);
     }
 }
 
@@ -415,23 +425,23 @@ test "across lines" {
             .filename = "src/very/long/hello.txt",
             .text =
             \\123 123 hello
-            \\world123
-            \\123 hello
             \\world 123
+            \\123 hello
+            \\worldd
             ,
             .expanded =
             \\╭─⊙ Preview of hello.txt
             \\│ 3 │ 123 hello
             \\│   ╵     ^^^^^
             \\├─⊙ Error in src/very/long/hello.txt:3:5
-            \\│ Unexpected whitespace.
+            \\│ Unexpected token.
             \\│ 
             \\│ File: hello.txt
             \\│ Line: 3
             \\╯
             \\
             ,
-            .simple = "Error in src/very/long/hello.txt:3:5: Unexpected whitespace.\n",
+            .simple = "Error in src/very/long/hello.txt:3:5: Unexpected token.\n",
         },
     );
 }

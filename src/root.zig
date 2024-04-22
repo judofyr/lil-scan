@@ -14,7 +14,7 @@ pub const alphanumericAscii = parsers.alphanumericAscii;
 pub const upperAscii = parsers.upperAscii;
 pub const lowerAscii = parsers.lowerAscii;
 pub const hexAscii = parsers.hexAscii;
-pub const andNotAscii = parsers.andNotAscii;
+pub const notAscii = parsers.notAscii;
 pub const whenUtf8 = parsers.whenUtf8;
 pub const integerAscii = parsers.integerAscii;
 

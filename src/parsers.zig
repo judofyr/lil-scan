@@ -4,7 +4,6 @@ const testing = std.testing;
 const diag = @import("diag.zig");
 
 pub const ParseSuccess = struct {
-    text: []const u8,
     matched: usize,
 };
 
@@ -18,18 +17,18 @@ pub const ParseResult = union(enum) {
     failure: ParseFailure,
     nothing,
 
-    pub fn from_len(text: []const u8, len: usize) ParseResult {
+    pub fn from_len(len: usize) ParseResult {
         if (len == 0) {
             return .nothing;
         } else {
-            return .{ .success = .{ .text = text, .matched = len } };
+            return .{ .success = .{ .matched = len } };
         }
     }
 };
 
 pub fn slice(text: []const u8, s: []const u8) ParseResult {
     if (std.mem.startsWith(u8, text, s)) {
-        return ParseResult.from_len(text, s.len);
+        return ParseResult.from_len(s.len);
     } else {
         return .nothing;
     }
@@ -46,7 +45,7 @@ pub fn whenAscii(text: []const u8, f: *const fn (ch: u8) bool) ParseResult {
         if (!f(ch)) break;
         len += 1;
     }
-    return ParseResult.from_len(text, len);
+    return ParseResult.from_len(len);
 }
 
 pub fn whitespaceAscii(text: []const u8) ParseResult {
@@ -87,40 +86,28 @@ test "ascii" {
     try expectSuccess(8, hexAscii("abc0123fg"));
 }
 
-pub fn andNotAscii(result: ParseResult, f: *const fn (ch: u8) bool, msg: *const diag.Message) ParseResult {
-    switch (result) {
-        .success => |s| {
-            if (s.matched < s.text.len and f(s.text[s.matched])) {
-                return .{ .failure = .{
-                    .msg = msg,
-                    .len = s.matched + 1,
-                } };
-            }
-        },
-        else => {},
+pub fn notAscii(text: []const u8, f: *const fn (ch: u8) bool) ParseResult {
+    if (text.len == 0 or !f(text[0])) {
+        return .{ .success = .{ .matched = 0 } };
+    } else {
+        return .nothing;
     }
-
-    return result;
 }
 
-test "andNotAscii" {
-    var num: i64 = undefined;
-
-    const msg = &diag.Message{ .text = "Invalid integer" };
-
+test "notAscii" {
     {
-        const result = andNotAscii(integerAscii("123abc", i64, &num), std.ascii.isAlphabetic, msg);
-        try expectFailure(result);
+        const result = notAscii("abc", std.ascii.isAlphabetic);
+        try expectNothing(result);
     }
 
     {
-        const result = andNotAscii(integerAscii("123 abc", i64, &num), std.ascii.isAlphabetic, msg);
-        try expectSuccess(3, result);
+        const result = notAscii(" abc", std.ascii.isAlphabetic);
+        try expectSuccess(0, result);
     }
 
     {
-        const result = andNotAscii(integerAscii("123", i64, &num), std.ascii.isAlphabetic, msg);
-        try expectSuccess(3, result);
+        const result = notAscii("", std.ascii.isAlphabetic);
+        try expectSuccess(0, result);
     }
 }
 
@@ -132,7 +119,7 @@ pub fn whenUtf8(text: []const u8, f: *const fn (cp: u21) bool) ParseResult {
         if (!f(cp)) break;
         len = it.i;
     }
-    return ParseResult.from_len(text, len);
+    return ParseResult.from_len(len);
 }
 
 test "whenUtf8" {
@@ -181,7 +168,7 @@ pub fn integerAscii(text: []const u8, comptime T: type, result: *T) ParseResult 
         len += 1;
     }
 
-    return ParseResult.from_len(text, len);
+    return ParseResult.from_len(len);
 }
 
 test "integerAscii" {
