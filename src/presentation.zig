@@ -66,106 +66,95 @@ fn severityText(sev: diag.Severity) []const u8 {
     };
 }
 
-const ExpandedPresentationItem = struct {
-    filename: []const u8,
-    short_filename: []const u8,
-    line: []const u8,
-    diagnostic: *const diag.Diagnostic,
+fn writeDiagnosticTitle(w: anytype, theme: type, msg: *const diag.Message, span: diag.Span, filename: []const u8) !void {
+    try theme.severityTitle(msg.severity).writeAll(w, severityText(msg.severity));
+    if (msg.code) |code| {
+        try w.writeAll(" ");
+        try theme.severityCode(msg.severity).writeAll(w, code);
+    }
+    try w.writeAll(" in ");
+    try theme.messageSpan().print(w, "{s}:{d}:{d}", .{
+        filename,
+        span.line_number + 1,
+        span.column_number + 1,
+    });
+}
 
-    pub fn writeTo(self: ExpandedPresentationItem, w: anytype, theme: type) !void {
+pub const PresentationItem = struct {
+    msg: *const diag.Message,
+    span: diag.Span,
+    filename: []const u8,
+    text: ?[]const u8 = null,
+    short_filename: ?[]const u8 = null,
+
+    pub fn writeSimple(self: PresentationItem, w: anytype, theme: type) !void {
+        try writeDiagnosticTitle(w, theme, self.msg, self.span, self.filename);
+        try w.writeAll(": ");
+        try w.writeAll(self.msg.text);
+        try w.writeAll("\n");
+    }
+
+    pub fn writeExpanded(self: PresentationItem, w: anytype, theme: type) !void {
+        const short_filename = self.short_filename orelse std.fs.path.basename(self.filename);
+
         var tl: TitleLine = .{};
 
+        if (self.text) |text| {
+            const from_line_start = text[self.span.line_start_pos..];
+            const line_end = std.mem.indexOfScalar(u8, from_line_start, '\n') orelse from_line_start.len;
+            const line = from_line_start[0..line_end];
+            try theme.border().writeAll(w, tl.title());
+            try theme.previewTitle().writeAll(w, "Preview");
+            try w.writeAll(" of ");
+            try theme.previewTarget().writeAll(w, short_filename);
+            try w.writeAll("\n");
+
+            const digits = std.math.log10_int(self.span.line_number + 1) + 1;
+            var aligned: Sidebar = .{ .width = digits };
+
+            try theme.border().writeAll(w, tl.content());
+            try theme.border().writeAll(w, aligned.fmt("{d}", .{self.span.line_number + 1}));
+            try w.writeAll(line);
+            try w.writeAll("\n");
+
+            try theme.border().writeAll(w, tl.content());
+            try theme.border().writeAll(w, aligned.fmtLast("", .{}));
+            try w.writeBytesNTimes(" ", self.span.column_number);
+            try w.writeBytesNTimes("^", @min(
+                self.span.len,
+                // This is our very basic way of handling multiple lines for now:
+                // We only show the first line.
+                line.len - self.span.column_number,
+            ));
+            try w.writeAll("\n");
+        }
+
         try theme.border().writeAll(w, tl.title());
-        try theme.previewTitle().writeAll(w, "Preview");
-        try w.writeAll(" of ");
-        try theme.previewTarget().writeAll(w, self.short_filename);
-        try w.writeAll("\n");
-
-        const digits = std.math.log10_int(self.diagnostic.span.line_number + 1) + 1;
-        var aligned: Sidebar = .{ .width = digits };
-
-        try theme.border().writeAll(w, tl.content());
-        try theme.border().writeAll(w, aligned.fmt("{d}", .{self.diagnostic.span.line_number + 1}));
-        try w.writeAll(self.line);
+        try writeDiagnosticTitle(w, theme, self.msg, self.span, self.filename);
         try w.writeAll("\n");
 
         try theme.border().writeAll(w, tl.content());
-        try theme.border().writeAll(w, aligned.fmtLast("", .{}));
-        try w.writeBytesNTimes(" ", self.diagnostic.span.column_number);
-        try w.writeBytesNTimes("^", @min(
-            self.diagnostic.span.len,
-            // This is our very basic way of handling multiple lines for now:
-            // We only show the first line.
-            self.line.len - self.diagnostic.span.column_number,
-        ));
-        try w.writeAll("\n");
-
-        try theme.border().writeAll(w, tl.title());
-        try writeDiagnosticTitle(w, theme, self.diagnostic, self.filename);
-        try w.writeAll("\n");
-
-        try theme.border().writeAll(w, tl.content());
-        try w.writeAll(self.diagnostic.msg.text);
+        try w.writeAll(self.msg.text);
         try w.writeAll("\n");
 
         try theme.border().writeAll(w, tl.content());
         try w.writeAll("\n");
 
         try theme.border().writeAll(w, tl.content());
-        try w.print("File: {s}", .{self.short_filename});
+        try w.print("File: {s}", .{short_filename});
         try w.writeAll("\n");
 
         try theme.border().writeAll(w, tl.content());
-        try w.print("Line: {d}", .{self.diagnostic.span.line_number + 1});
+        try w.print("Line: {d}", .{self.span.line_number + 1});
         try w.writeAll("\n");
 
-        if (self.diagnostic.msg.code) |code| {
+        if (self.msg.code) |code| {
             try theme.border().writeAll(w, tl.content());
             try w.print("Code: {s}", .{code});
             try w.writeAll("\n");
         }
 
         try theme.border().writeAll(w, tl.close());
-        try w.writeAll("\n");
-    }
-};
-
-fn writeDiagnosticTitle(w: anytype, theme: type, diagnostic: *const diag.Diagnostic, filename: []const u8) !void {
-    try theme.severityTitle(diagnostic.msg.severity).writeAll(w, severityText(diagnostic.msg.severity));
-    if (diagnostic.msg.code) |code| {
-        try w.writeAll(" ");
-        try theme.severityCode(diagnostic.msg.severity).writeAll(w, code);
-    }
-    try w.writeAll(" in ");
-    try theme.messageSpan().print(w, "{s}:{d}:{d}", .{
-        filename,
-        diagnostic.span.line_number + 1,
-        diagnostic.span.column_number + 1,
-    });
-}
-
-pub const PresentationItem = struct {
-    diagnostic: *const diag.Diagnostic,
-    filename: []const u8,
-    text: []const u8,
-
-    pub fn expand(self: PresentationItem) ExpandedPresentationItem {
-        const from_line_start = self.text[self.diagnostic.span.line_start_pos..];
-        const line_end = std.mem.indexOfScalar(u8, from_line_start, '\n') orelse from_line_start.len;
-        const line = from_line_start[0..line_end];
-
-        return ExpandedPresentationItem{
-            .filename = self.filename,
-            .short_filename = std.fs.path.basename(self.filename),
-            .line = line,
-            .diagnostic = self.diagnostic,
-        };
-    }
-
-    pub fn writeTo(self: PresentationItem, w: anytype, theme: type) !void {
-        try writeDiagnosticTitle(w, theme, self.diagnostic, self.filename);
-        try w.writeAll(": ");
-        try w.writeAll(self.diagnostic.msg.text);
         try w.writeAll("\n");
     }
 };
@@ -205,15 +194,15 @@ pub const Presenter = struct {
         const w = self.buffered_writer.writer();
         if (self.options.expand) {
             if (self.options.colors) {
-                try item.expand().writeTo(w, theme);
+                try item.writeExpanded(w, theme);
             } else {
-                try item.expand().writeTo(w, themes.NoopTheme);
+                try item.writeExpanded(w, themes.NoopTheme);
             }
         } else {
             if (self.options.colors) {
-                try item.writeTo(w, theme);
+                try item.writeSimple(w, theme);
             } else {
-                try item.writeTo(w, themes.NoopTheme);
+                try item.writeSimple(w, themes.NoopTheme);
             }
         }
         try self.buffered_writer.flush();
@@ -255,13 +244,12 @@ fn testNumber(case: TestCase) !void {
     var s = Scanner.init(case.text);
     s.line_number += case.adjust_line_start;
 
-    var d: ?diag.Diagnostic = null;
-    s.diag_handler = diag.pointerHandler(&d);
     parseNumbers(&s) catch {};
-    try testing.expect(d != null);
+    try testing.expect(s.failure != null);
 
     const item = PresentationItem{
-        .diagnostic = &d.?,
+        .msg = s.failure.?.msg,
+        .span = s.failure.?.span,
         .filename = case.filename,
         .text = case.text,
     };
@@ -270,22 +258,22 @@ fn testNumber(case: TestCase) !void {
         var result = std.ArrayList(u8).init(testing.allocator);
         defer result.deinit();
 
-        try item.writeTo(result.writer(), themes.NoopTheme);
+        try item.writeSimple(result.writer(), themes.NoopTheme);
         try testing.expectEqualStrings(case.simple, result.items);
 
         result.clearRetainingCapacity();
-        try item.writeTo(result.writer(), themes.DefaultTheme);
+        try item.writeSimple(result.writer(), themes.DefaultTheme);
     }
 
     {
         var result = std.ArrayList(u8).init(testing.allocator);
         defer result.deinit();
 
-        try item.expand().writeTo(result.writer(), themes.NoopTheme);
+        try item.writeExpanded(result.writer(), themes.NoopTheme);
         try testing.expectEqualStrings(case.expanded, result.items);
 
         result.clearRetainingCapacity();
-        try item.expand().writeTo(result.writer(), themes.DefaultTheme);
+        try item.writeExpanded(result.writer(), themes.DefaultTheme);
     }
 }
 

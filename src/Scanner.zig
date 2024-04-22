@@ -13,7 +13,12 @@ pos: usize = 0,
 line_number: usize = 0,
 line_start_pos: usize = 0,
 
-diag_handler: ?diag.Handler = null,
+failure: ?Failure = null,
+
+pub const Failure = struct {
+    msg: *const diag.Message,
+    span: diag.Span,
+};
 
 /// Creates a new scanner which points to the beginning of the given text.
 pub fn init(text: []const u8) Scanner {
@@ -33,7 +38,7 @@ pub fn skip(self: *Scanner, result: ParseResult) !void {
     switch (result) {
         .success => |s| self.advance(s.matched),
         .failure => |f| {
-            self.reportSpan(f.msg, self.restSpan(f.len));
+            self.reportFailure(f.msg, self.restSpan(f.len));
             return error.ParseError;
         },
         .nothing => {},
@@ -47,7 +52,7 @@ pub fn maybe(self: *Scanner, result: ParseResult) !bool {
             return true;
         },
         .failure => |f| {
-            self.reportSpan(f.msg, self.restSpan(f.len));
+            self.reportFailure(f.msg, self.restSpan(f.len));
             return error.ParseError;
         },
         .nothing => return false,
@@ -58,11 +63,11 @@ pub fn must(self: *Scanner, result: ParseResult, msg: *const diag.Message) !void
     switch (result) {
         .success => |s| self.advance(s.matched),
         .failure => |f| {
-            self.reportSpan(f.msg, self.restSpan(f.len));
+            self.reportFailure(f.msg, self.restSpan(f.len));
             return error.ParseError;
         },
         .nothing => {
-            self.reportSpan(msg, self.restSpan(1));
+            self.reportFailure(msg, self.restSpan(1));
             return error.ParseError;
         },
     }
@@ -87,17 +92,11 @@ pub fn restSpan(self: *Scanner, len: usize) diag.Span {
     };
 }
 
-pub fn reportSpan(self: *Scanner, msg: *const diag.Message, span: diag.Span) void {
-    self.reportDiag(diag.Diagnostic{
+pub fn reportFailure(self: *Scanner, msg: *const diag.Message, span: diag.Span) void {
+    self.failure = Failure{
         .msg = msg,
         .span = span,
-    });
-}
-
-pub fn reportDiag(self: *Scanner, diagnostic: diag.Diagnostic) void {
-    if (self.diag_handler) |handler| {
-        handler.handle(diagnostic);
-    }
+    };
 }
 
 const testing = std.testing;
@@ -132,55 +131,48 @@ test "simple scanning" {
 
 test "skip" {
     var s = Scanner.init(" 678");
-    var d: ?diag.Diagnostic = null;
-    s.diag_handler = diag.pointerHandler(&d);
 
     // Success:
     try s.skip(parsers.whitespaceAscii(s.rest()));
-    try testing.expect(d == null);
+    try testing.expect(s.failure == null);
 
     // Nothing:
     try s.skip(parsers.whitespaceAscii(s.rest()));
-    try testing.expect(d == null);
+    try testing.expect(s.failure == null);
 
     // Failure:
     var num: i8 = undefined;
     const res = s.skip(parsers.integerAscii(s.rest(), i8, &num));
     try testing.expectError(error.ParseError, res);
-    try testing.expect(d != null);
+    try testing.expect(s.failure != null);
 }
 
 test "maybe" {
     var s = Scanner.init(" 678");
-    var d: ?diag.Diagnostic = null;
-    s.diag_handler = diag.pointerHandler(&d);
 
     // Success:
     try testing.expect(try s.maybe(parsers.whitespaceAscii(s.rest())));
-    try testing.expect(d == null);
+    try testing.expect(s.failure == null);
 
     // Nothing:
     try testing.expect(!try s.maybe(parsers.whitespaceAscii(s.rest())));
-    try testing.expect(d == null);
+    try testing.expect(s.failure == null);
 
     // Failure:
     var num: i8 = undefined;
     const res = s.maybe(parsers.integerAscii(s.rest(), i8, &num));
     try testing.expectError(error.ParseError, res);
-    try testing.expect(d != null);
+    try testing.expect(s.failure != null);
 }
 
 test "must" {
     var s = Scanner.init(" 678");
-    var d: ?diag.Diagnostic = null;
-    s.diag_handler = diag.pointerHandler(&d);
 
     // Success:
     try s.must(
         parsers.whitespaceAscii(s.rest()),
         &.{ .text = "Expected whitespace" },
     );
-    try testing.expect(d == null);
 
     // Nothing:
     {
@@ -189,9 +181,9 @@ test "must" {
             &.{ .text = "Expected whitespace" },
         );
         try testing.expectError(error.ParseError, res);
-        try testing.expect(d != null);
-        try testing.expectEqualStrings("Expected whitespace", d.?.msg.text);
-        d = null;
+        try testing.expect(s.failure != null);
+        try testing.expectEqualStrings("Expected whitespace", s.failure.?.msg.text);
+        s.failure = null;
     }
 
     // Failure:
@@ -202,9 +194,9 @@ test "must" {
             &.{ .text = "Expected integer" },
         );
         try testing.expectError(error.ParseError, res);
-        try testing.expect(d != null);
-        try testing.expectEqual(parsers.msgIntegerOverflow, d.?.msg);
-        d = null;
+        try testing.expect(s.failure != null);
+        try testing.expectEqual(parsers.msgIntegerOverflow, s.failure.?.msg);
+        s.failure = null;
     }
 }
 
@@ -240,15 +232,4 @@ test "span" {
         .len = 0,
         .line_start_pos = 4,
     }, s.restSpan(0));
-}
-
-test "diag handler" {
-    var s = Scanner.init("abc");
-
-    var list = std.ArrayList(diag.Diagnostic).init(testing.allocator);
-    defer list.deinit();
-    s.diag_handler = diag.arrayListHandler(&list);
-    s.reportSpan(&.{ .text = "Integer expected" }, s.restSpan(0));
-
-    try testing.expectEqual(1, list.items.len);
 }

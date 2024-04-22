@@ -22,7 +22,7 @@ pub const Scanner = @import("Scanner.zig");
 
 const diag = @import("diag.zig");
 pub const Span = diag.Span;
-pub const Diagnostic = diag.Diagnostic;
+pub const Message = diag.Message;
 pub const Severity = diag.Severity;
 
 const presentation = @import("presentation.zig");
