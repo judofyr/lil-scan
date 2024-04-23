@@ -222,22 +222,15 @@ const Partial = union(enum) {
 
     pub fn merge(self: Partial, other: Term) Term {
         switch (other) {
-            .expr => |expr| return .{
-                .expr = self.apply(expr),
-            },
-            .part => |part| {
-                switch (part) {
-                    .prefix => unreachable,
-                    .infix => |infix| return .{
-                        .part = .{
-                            .infix = .{
-                                .expr = self.apply(infix.expr),
-                                .op = infix.op,
-                                .span = infix.span,
-                            },
-                        },
+            .expr => |expr| return .{ .expr = self.apply(expr) },
+            .part => |part| return .{
+                .part = .{
+                    .infix = .{
+                        .expr = self.apply(part.infix.expr),
+                        .op = part.infix.op,
+                        .span = part.infix.span,
                     },
-                }
+                },
             },
         }
     }
