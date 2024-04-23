@@ -74,4 +74,13 @@ pub fn build(b: *std.Build) !void {
     });
     demo_err.root_module.addImport("lil-scan", mod);
     b.installArtifact(demo_err);
+
+    const demo_calc = b.addExecutable(.{
+        .name = "lil-demo-calc",
+        .root_source_file = .{ .path = "examples/demo-calc.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    demo_calc.root_module.addImport("lil-scan", mod);
+    b.installArtifact(demo_calc);
 }
