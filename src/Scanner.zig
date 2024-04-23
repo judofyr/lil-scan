@@ -15,6 +15,8 @@ line_start_pos: usize = 0,
 
 failure: ?Failure = null,
 
+pub const Error = error{ParseError};
+
 pub const Failure = struct {
     msg: *const diag.Message,
     span: diag.Span,
@@ -34,7 +36,7 @@ pub fn isDone(self: *Scanner) bool {
     return self.pos == self.text.len;
 }
 
-pub fn skip(self: *Scanner, result: ParseResult) !void {
+pub fn skip(self: *Scanner, result: ParseResult) Error!void {
     switch (result) {
         .success => |s| _ = self.advance(s.matched),
         .failure => |f| {
@@ -44,7 +46,7 @@ pub fn skip(self: *Scanner, result: ParseResult) !void {
     }
 }
 
-pub fn maybe(self: *Scanner, result: ParseResult) !?diag.Span {
+pub fn maybe(self: *Scanner, result: ParseResult) Error!?diag.Span {
     switch (result) {
         .success => |s| {
             return self.advance(s.matched);
@@ -56,7 +58,7 @@ pub fn maybe(self: *Scanner, result: ParseResult) !?diag.Span {
     }
 }
 
-pub fn must(self: *Scanner, result: ParseResult, msg: *const diag.Message) !diag.Span {
+pub fn must(self: *Scanner, result: ParseResult, msg: *const diag.Message) Error!diag.Span {
     switch (result) {
         .success => |s| return self.advance(s.matched),
         .failure => |f| {
