@@ -36,44 +36,40 @@ pub fn isDone(self: *Scanner) bool {
 
 pub fn skip(self: *Scanner, result: ParseResult) !void {
     switch (result) {
-        .success => |s| self.advance(s.matched),
+        .success => |s| _ = self.advance(s.matched),
         .failure => |f| {
-            self.reportFailure(f.msg, self.restSpan(f.len));
-            return error.ParseError;
+            try self.fail(f.msg, self.restSpan(f.len));
         },
         .nothing => {},
     }
 }
 
-pub fn maybe(self: *Scanner, result: ParseResult) !bool {
+pub fn maybe(self: *Scanner, result: ParseResult) !?diag.Span {
     switch (result) {
         .success => |s| {
-            self.advance(s.matched);
-            return true;
+            return self.advance(s.matched);
         },
         .failure => |f| {
-            self.reportFailure(f.msg, self.restSpan(f.len));
-            return error.ParseError;
+            try self.fail(f.msg, self.restSpan(f.len));
         },
-        .nothing => return false,
+        .nothing => return null,
     }
 }
 
-pub fn must(self: *Scanner, result: ParseResult, msg: *const diag.Message) !void {
+pub fn must(self: *Scanner, result: ParseResult, msg: *const diag.Message) !diag.Span {
     switch (result) {
-        .success => |s| self.advance(s.matched),
+        .success => |s| return self.advance(s.matched),
         .failure => |f| {
-            self.reportFailure(f.msg, self.restSpan(f.len));
-            return error.ParseError;
+            try self.fail(f.msg, self.restSpan(f.len));
         },
         .nothing => {
-            self.reportFailure(msg, self.restSpan(1));
-            return error.ParseError;
+            try self.fail(msg, self.restSpan(1));
         },
     }
 }
 
-pub fn advance(self: *Scanner, len: usize) void {
+pub fn advance(self: *Scanner, len: usize) diag.Span {
+    const span = self.restSpan(len);
     for (self.text[self.pos..][0..len]) |ch| {
         if (ch == '\n') {
             self.line_number += 1;
@@ -81,6 +77,7 @@ pub fn advance(self: *Scanner, len: usize) void {
         }
         self.pos += 1;
     }
+    return span;
 }
 
 pub fn restSpan(self: *Scanner, len: usize) diag.Span {
@@ -92,11 +89,16 @@ pub fn restSpan(self: *Scanner, len: usize) diag.Span {
     };
 }
 
-pub fn reportFailure(self: *Scanner, msg: *const diag.Message, span: diag.Span) void {
+pub fn sliceFromSpan(self: *Scanner, span: diag.Span) []const u8 {
+    return self.text[span.line_start_pos + span.column_number ..][0..span.len];
+}
+
+pub fn fail(self: *Scanner, msg: *const diag.Message, span: diag.Span) error{ParseError}!noreturn {
     self.failure = Failure{
         .msg = msg,
         .span = span,
     };
+    return error.ParseError;
 }
 
 const testing = std.testing;
@@ -110,7 +112,10 @@ test "simple scanning" {
 
     try testing.expect(!s.isDone());
     var num: i64 = undefined;
-    try s.must(parsers.integerAscii(s.rest(), i64, &num), &.{ .text = "Expected integer" });
+    _ = try s.must(
+        parsers.integerAscii(s.rest(), i64, &num),
+        &.{ .text = "Expected integer" },
+    );
     try testing.expectEqual(123, num);
     try testing.expectEqual(5, s.pos);
 
@@ -119,11 +124,11 @@ test "simple scanning" {
     try testing.expectEqual(6, s.pos);
 
     try testing.expect(!s.isDone());
-    try testing.expect(try s.maybe(parsers.slice(s.rest(), "[")));
+    try testing.expect(try s.maybe(parsers.slice(s.rest(), "[")) != null);
     try testing.expectEqual(7, s.pos);
 
     try testing.expect(!s.isDone());
-    try testing.expect(try s.maybe(parsers.slice(s.rest(), "]")));
+    try testing.expect(try s.maybe(parsers.slice(s.rest(), "]")) != null);
     try testing.expectEqual(8, s.pos);
 
     try testing.expect(s.isDone());
@@ -151,11 +156,11 @@ test "maybe" {
     var s = Scanner.init(" 678");
 
     // Success:
-    try testing.expect(try s.maybe(parsers.whitespaceAscii(s.rest())));
+    try testing.expect(try s.maybe(parsers.whitespaceAscii(s.rest())) != null);
     try testing.expect(s.failure == null);
 
     // Nothing:
-    try testing.expect(!try s.maybe(parsers.whitespaceAscii(s.rest())));
+    try testing.expect(try s.maybe(parsers.whitespaceAscii(s.rest())) == null);
     try testing.expect(s.failure == null);
 
     // Failure:
@@ -169,7 +174,7 @@ test "must" {
     var s = Scanner.init(" 678");
 
     // Success:
-    try s.must(
+    _ = try s.must(
         parsers.whitespaceAscii(s.rest()),
         &.{ .text = "Expected whitespace" },
     );
@@ -203,7 +208,7 @@ test "must" {
 test "span" {
     var s = Scanner.init("abc\nde");
 
-    try s.must(
+    _ = try s.must(
         parsers.slice(s.rest(), "abc"),
         &.{ .text = "Expected `abc`" },
     );
@@ -222,7 +227,7 @@ test "span" {
         .line_start_pos = 4,
     }, s.restSpan(0));
 
-    try s.must(
+    _ = try s.must(
         parsers.slice(s.rest(), "de"),
         &.{ .text = "Expected `de`" },
     );

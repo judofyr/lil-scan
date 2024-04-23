@@ -236,12 +236,12 @@ fn parseNumbers(s: *Scanner) !void {
         try s.skip(parsers.whitespaceAscii(s.rest()));
         if (s.isDone()) break;
 
-        if (try s.maybe(parseHelloWorld(s.rest()))) {
+        if (try s.maybe(parseHelloWorld(s.rest()))) |_| {
             try s.skip(parsers.whitespaceAscii(s.rest()));
         }
 
         var num: i8 = undefined;
-        try s.must(
+        _ = try s.must(
             parsers.integerAscii(s.rest(), i8, &num),
             &.{ .text = "Expected integer.", .code = "INT" },
         );
