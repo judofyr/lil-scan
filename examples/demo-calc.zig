@@ -187,6 +187,46 @@ pub fn main() !void {
 
 // Helpers for precedence parsing:
 
+/// scanExpr parses an expression while evaluting the value on the fly.
+fn scanExpr(s: *lil.Scanner) lil.Scanner.Error!i64 {
+    return scanTermIntoExpr(s, try scanTerm(s));
+}
+
+/// scanTermIntoExpr is a helper method.
+fn scanTermIntoExpr(s: *lil.Scanner, term: Term) lil.Scanner.Error!i64 {
+    switch (term) {
+        .expr => |expr| return expr,
+        .part => |part| return scanTermIntoExpr(s, try scanExprAfterTerm(s, part, try scanTerm(s))),
+    }
+}
+
+/// scanExprAfterTerm is a helper method which takes as input a partial and a term and combines
+/// them together into a new term while respecting operator precedence. This scans as little
+/// as possible.
+fn scanExprAfterTerm(s: *lil.Scanner, left: Partial, right: Term) lil.Scanner.Error!Term {
+    switch (right) {
+        .expr => return left.reduce(right),
+        .part => |part| switch (left.associativity(part)) {
+            // 1 + 2 + … => 3 + …
+            // 1 * 2 + … => 2 + …
+            .left => return left.reduce(right),
+
+            // Example: We're `5 + 3 * 8 + 3` and we reach the point where we invoke scanExprAfterTerm(5 +, 3 *).
+            // We then scan another term and recursve on the right-hand side: scanExprAfterTerm(3 *, 8 +).
+            // This is left-associative so it's reduced into `24 +`.
+            // Finally we recurse with the initial partial: scanExprAfterTerm(5 +, 24 +).
+            // This is being reduced as well and we return `29 +`.
+            .right => return scanExprAfterTerm(s, left, try scanExprAfterTerm(s, part, try scanTerm(s))),
+
+            // 1 == 2 == 3 => Fail.
+            .none => try s.fail(&.{ .text = "Operator is non-assoative." }, part.span()),
+        },
+    }
+}
+
+/// Given two operators with given precedence levels, returns which of them should be evaluated first.
+///
+/// Example: The level associativity between `*` and `+` is `.left`.
 fn levelAssociativity(left: PrecedenceLevel, right: PrecedenceLevel) Associativity {
     if (left == right) {
         return left.associativity();
@@ -197,6 +237,16 @@ fn levelAssociativity(left: PrecedenceLevel, right: PrecedenceLevel) Associativi
     }
 }
 
+/// We deal with two different types of terms in our algorithm:
+///
+/// - An _expression_ is a plain value, for instance `1`.
+/// - A _partial_ is something which can be evaluated. `5 +` is partial infix and `-` is a partial prefix.
+const Term = union(enum) {
+    expr: i64,
+    part: Partial,
+};
+
+/// Infix represents a partially parsed infix operator with an evaluated expression on the left-hand side.
 const Infix = struct {
     expr: i64,
     op: BinaryOperator,
@@ -207,6 +257,7 @@ const Infix = struct {
     }
 };
 
+/// Prefix represents a partially parsed prefix operator.
 pub const Prefix = struct {
     op: UnaryOperator,
     span: lil.Span,
@@ -220,7 +271,14 @@ const Partial = union(enum) {
     prefix: Prefix,
     infix: Infix,
 
-    pub fn merge(self: Partial, other: Term) Term {
+    /// Reduces the partial into another term, applying the operation stored.
+    /// This will not respect any associativity rules.
+    ///
+    /// Examples:
+    /// - `reduce(6 +, 6)` returns `12`.
+    /// - `reduce(6 +, 6 *)` returns `12 *`.
+    /// - `reduce(6 +, -)` is undefined behavior.
+    pub fn reduce(self: Partial, other: Term) Term {
         switch (other) {
             .expr => |expr| return .{ .expr = self.apply(expr) },
             .part => |part| return .{
@@ -253,6 +311,9 @@ const Partial = union(enum) {
         }
     }
 
+    /// Returns the associativity for two given partials.
+    /// This uses `levelAssociativity` internally, but also correctly handles the case where
+    /// the right-hand side is a prefix partial (in which case a left associativity is not valid).
     pub fn associativity(self: Partial, other: Partial) Associativity {
         switch (other) {
             .prefix => return .right,
@@ -260,34 +321,3 @@ const Partial = union(enum) {
         }
     }
 };
-
-const Term = union(enum) {
-    expr: i64,
-    part: Partial,
-};
-
-fn scanExpr(s: *lil.Scanner) lil.Scanner.Error!i64 {
-    return scanTermIntoExpr(s, try scanTerm(s));
-}
-
-fn scanTermIntoExpr(s: *lil.Scanner, node: Term) lil.Scanner.Error!i64 {
-    switch (node) {
-        .expr => |expr| return expr,
-        .part => |part| return scanTermIntoExpr(s, try scanExprAfterTerm(s, part, try scanTerm(s))),
-    }
-}
-
-fn scanExprAfterTerm(s: *lil.Scanner, left: Partial, right: Term) lil.Scanner.Error!Term {
-    switch (right) {
-        .expr => return left.merge(right),
-        .part => |part| switch (left.associativity(part)) {
-            // 1 + 2 + … => 3 + …
-            // 1 * 2 + … => 2 + …
-            .left => return left.merge(right),
-            // 1 + 2 * … => (1 +).merge(2 * …)
-            .right => return scanExprAfterTerm(s, left, try scanExprAfterTerm(s, part, try scanTerm(s))),
-            // 1 == 2 == 3 => Fail.
-            .none => try s.fail(&.{ .text = "Operator is non-assoative." }, part.span()),
-        },
-    }
-}
