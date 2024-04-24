@@ -1,0 +1,53 @@
+# Design decisions in Lil Scan
+:toc:
+
+## Error message presentation
+
+image::https://judofyr.github.io/lil-scan/images/rust-example1.png[]
+
+A core principle for the presentation of error message is *progressive enhancement*.
+In the middle of this error message you will find this part:
+
+```
+Error E0080 in src/test/compile-fail/E0080.rs:12:3
+Attempt to shift left with overflow.
+```
+
+This is _actually_ the full error message.
+Everything around is just additional information which helps you understand the error message quicker. 
+The simple error presentation is useful in itself:
+
+- If you're sharing the error message with someone else then you only need these two lines.
+  We reduce the chance they someone unintentionally shares an error message without the critical information.
+- Outside of a terminal (in logs or error reporting systems) this is a very efficient way of displaying the information.
+
+By always showing the simple error presentation _together_ with the expanded one we slowly teach the user about the format.
+They don't have to guess what the numbers ("what is `:12:3`?") mean since we explain it in full words ("oh, it's the line number").
+
+In addition, we're following these stylistic principles:
+
+- *Most important information furthest down:*
+  Terminals are a bit strange in that they print information bottom-up:
+  The newest information appears at the bottom and pushes the previous information up.
+  A user will naturally read a terminal bottom-up,
+  typically scanning for "where did this command _start_" and read from there.
+  The _actual_ error message section is therefore placed at the bottom while additional information comes further up.
+- *Connecting sections together:*
+  The terminal itself makes it surprisingly hard to group relevant information together.
+  We add our own border so that the user quickly understand.
+  This is particularly important when multiple errors are shown.
+- *Predictable placement:*
+  If possible, we place elements such that they will appear in that spot for _all_ error messages.
+  The length of the filename, the shape of the source code, and even the width of the line numbers will notably _not_ impact any other element.
+- *Careful use of colors:*
+  Colors are a great way of drawing attention and we use them sparingly to draw attention to a _specific_ area:
+  They are the quick way of finding the different sections of an error message.
+  Bright colors are therefore _only_ used in the section title.
+  This combines well with the premise of "users read a terminal bottom-up".
+  You can read bottom-up until you find a colored line and then you've identified a full section.
+- *Capitalization, punctuation and prepositions:*
+  Many systems tend to use lowercase-only messages and special symbols to group things together (e.g. square brackets).
+  We see no reason to _not_ follow regular English conventions.
+  Capitals signal the start of a new sentence and the period marks the end.
+  These help the user quickly scan the sentences.
+  Prepositions such as "of" and "in" are both short _and_ convey meaning.

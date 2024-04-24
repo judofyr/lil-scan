@@ -1,21 +1,35 @@
-# Lil Scan helps you hand-write parsers in Zig
+# Lil Scan helps you hand-write parsers in Zig with excellent error messages
 
-Lil Scan (the younger sibling of Big Parse) is a library which helps you hand-write parsers in Zig.
+Hand-writing parsers isn't actually too bad: You write a function for every syntactical element and by using regular code you get a lot of control of error messages and how to process the parsed structure.
+Lil Scan (the younger sibling of Big Parse) is a library which helps you in this process.
+It provides a _scanner_ which handles the tokenization step of your parser.
+One of the main value it provides is the _diagnostic_ system which makes it easy to provide excellent error messages.
+
+![An example of the error message presented by Lil Scan.](https://judofyr.github.io/lil-scan/images/rust-example1.png)
 
 ## Features / non-features
 
-- Handles scanning/lexing only.
-  No support for traditional context-free parsing algorithms. LL(k), LR, LALR are all terms which Lil Scan knows nothing about.
-- Easily used inside a hand-written (recursive descent) parser.
-- Built-in parsers for common patterns: Whitespace, integers, strings, punctuation.
-- Built-in parsers for JSON primitives *(planned)*.
-- UTF-8/Unicode by default, and anything which works on ASCII is clearly labeled as such.
-- Provides source locations for each token which can be stored for later stages.
-- Excellent error messages with arrows pointing to the exact place where it happened *(planned)*.
-- Flexible diagnostic system which can annotate both warnings and errors *(planned)*.
-- Tagging during scanning enables syntax highlighted error messages *(planned)*.
-- Zero dependencies.
-- 100% test coverage.
+- **Handles scanning/lexing only:**
+  - Designed to be used together with a hand-written (recursive descent) parser.
+  - No support for traditional context-free parsing algorithms. LL(k), LR, LALR are all terms which Lil Scan knows nothing about.
+- **Built-in support for common patterns:**
+  - Whitespace, integers, strings.
+  - UTF-8/Unicode by default, and anything which works on ASCII is clearly labeled as such.
+  - JSON primitives *(planned)*.
+- **Flexible diagnostic system:**
+  - The scanner returns _spans_ for every token which can be stored for later stages.
+- **Excellent presentation of error message:**
+  - The source is include with arrows pointing to the exact place.
+  - [Deliberate design decisions.](DESIGN.adoc)
+  - Automatically detects if stderr is _not_ a TTY and then prints single-line errors.
+  - Respects [`NO_COLOR`](https://no-color.org/).
+  - Tagging during scanning enables syntax highlighted error messages *(planned)*.
+- **Follows best practices:**:
+  - Zero allocations.
+  - Zero dependencies.
+  - 100% test coverage.
+  - 100% documentation coverage *(planned)*.
+  - 0BSD licensed.
 
 *Note: There's no promise of active development.*
 *The planned features are merely what we think would fit within this project.*
