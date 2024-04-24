@@ -187,23 +187,21 @@ pub fn main() !void {
 
 // Helpers for precedence parsing:
 
-/// scanExpr parses an expression while evaluting the value on the fly.
+/// Parses a complete expression.
 fn scanExpr(s: *lil.Scanner) lil.Scanner.Error!i64 {
-    return scanTermIntoExpr(s, try scanTerm(s));
+    return scanCompleteTerm(s, try scanTerm(s));
 }
 
-/// scanTermIntoExpr is a helper method.
-fn scanTermIntoExpr(s: *lil.Scanner, term: Term) lil.Scanner.Error!i64 {
+/// Takes a term (e.g. `1`, `1 +`) and then completes it into an expression.
+fn scanCompleteTerm(s: *lil.Scanner, term: Term) lil.Scanner.Error!i64 {
     switch (term) {
         .expr => |expr| return expr,
-        .part => |part| return scanTermIntoExpr(s, try scanExprAfterTerm(s, part, try scanTerm(s))),
+        .part => |part| return scanCompleteTerm(s, try scanMergeTerm(s, part, try scanTerm(s))),
     }
 }
 
-/// scanExprAfterTerm is a helper method which takes as input a partial and a term and combines
-/// them together into a new term while respecting operator precedence. This scans as little
-/// as possible.
-fn scanExprAfterTerm(s: *lil.Scanner, left: Partial, right: Term) lil.Scanner.Error!Term {
+/// Takes a partial term (e.g. `1 +`) and a term (e.g. `2`, `2 *`) and merges it into a single term.
+fn scanMergeTerm(s: *lil.Scanner, left: Partial, right: Term) lil.Scanner.Error!Term {
     switch (right) {
         .expr => return left.reduce(right),
         .part => |part| switch (left.associativity(part)) {
@@ -211,12 +209,12 @@ fn scanExprAfterTerm(s: *lil.Scanner, left: Partial, right: Term) lil.Scanner.Er
             // 1 * 2 + … => 2 + …
             .left => return left.reduce(right),
 
-            // Example: We're `5 + 3 * 8 + 3` and we reach the point where we invoke scanExprAfterTerm(5 +, 3 *).
-            // We then scan another term and recursve on the right-hand side: scanExprAfterTerm(3 *, 8 +).
+            // Example: We're `5 + 3 * 8 + 3` and we reach the point where we invoke scanMergeTerm(5 +, 3 *).
+            // We then scan another term and recursve on the right-hand side: scanMergeTerm(3 *, 8 +).
             // This is left-associative so it's reduced into `24 +`.
-            // Finally we recurse with the initial partial: scanExprAfterTerm(5 +, 24 +).
+            // Finally we recurse with the initial partial: scanMergeTerm(5 +, 24 +).
             // This is being reduced as well and we return `29 +`.
-            .right => return scanExprAfterTerm(s, left, try scanExprAfterTerm(s, part, try scanTerm(s))),
+            .right => return scanMergeTerm(s, left, try scanMergeTerm(s, part, try scanTerm(s))),
 
             // 1 == 2 == 3 => Fail.
             .none => try s.fail(&.{ .text = "Operator is non-assoative." }, part.span()),
