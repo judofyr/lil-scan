@@ -7,7 +7,7 @@ const ParseResult = parsers.ParseResult;
 
 const diag = @import("diag.zig");
 
-text: []const u8,
+source: []const u8,
 pos: usize = 0,
 
 line_number: usize = 0,
@@ -23,17 +23,17 @@ pub const Failure = struct {
 };
 
 /// Creates a new scanner which points to the beginning of the given text.
-pub fn init(text: []const u8) Scanner {
-    return Scanner{ .text = text };
+pub fn init(src: []const u8) Scanner {
+    return Scanner{ .source = src };
 }
 
 pub fn rest(self: *Scanner) []const u8 {
-    return self.text[self.pos..];
+    return self.source[self.pos..];
 }
 
 /// Returns true if the scanner is currently at the end.
 pub fn isDone(self: *Scanner) bool {
-    return self.pos == self.text.len;
+    return self.pos == self.source.len;
 }
 
 pub fn skip(self: *Scanner, result: ParseResult) Error!void {
@@ -72,7 +72,7 @@ pub fn must(self: *Scanner, result: ParseResult, msg: *const diag.Message) Error
 
 pub fn advance(self: *Scanner, len: usize) diag.Span {
     const span = self.restSpan(len);
-    for (self.text[self.pos..][0..len]) |ch| {
+    for (self.source[self.pos..][0..len]) |ch| {
         if (ch == '\n') {
             self.line_number += 1;
             self.line_start_pos = self.pos + 1;
@@ -92,7 +92,7 @@ pub fn restSpan(self: *Scanner, len: usize) diag.Span {
 }
 
 pub fn sliceFromSpan(self: *Scanner, span: diag.Span) []const u8 {
-    return self.text[span.line_start_pos + span.column_number ..][0..span.len];
+    return self.source[span.line_start_pos + span.column_number ..][0..span.len];
 }
 
 pub fn fail(self: *Scanner, msg: *const diag.Message, span: diag.Span) error{ParseError}!noreturn {

@@ -89,8 +89,8 @@ pub const SingleMessagePresentation = struct {
     filename: []const u8,
     /// Where in the file the message happened.
     span: diag.Span,
-    /// The source text of the file.
-    text: ?[]const u8 = null,
+    /// The source of the file.
+    source: ?[]const u8 = null,
     /// A short version of the filename. Used in some places to avoid repeating a long filename.
     short_filename: ?[]const u8 = null,
 
@@ -108,7 +108,7 @@ pub const SingleMessagePresentation = struct {
 
         var tl: TitleLine = .{};
 
-        if (self.text) |text| {
+        if (self.source) |text| {
             const from_line_start = text[self.span.line_start_pos..];
             const line_end = std.mem.indexOfScalar(u8, from_line_start, '\n') orelse from_line_start.len;
             const line = from_line_start[0..line_end];
@@ -266,14 +266,14 @@ fn parseNumbers(s: *Scanner) !void {
 
 const TestCase = struct {
     filename: []const u8,
-    text: []const u8,
+    source: []const u8,
     expanded: []const u8,
     simple: []const u8,
     adjust_line_start: usize = 0,
 };
 
 fn testNumber(case: TestCase) !void {
-    var s = Scanner.init(case.text);
+    var s = Scanner.init(case.source);
     s.line_number += case.adjust_line_start;
 
     parseNumbers(&s) catch {};
@@ -283,7 +283,7 @@ fn testNumber(case: TestCase) !void {
         .msg = s.failure.?.msg,
         .span = s.failure.?.span,
         .filename = case.filename,
-        .text = case.text,
+        .source = case.source,
     };
 
     {
@@ -313,7 +313,7 @@ test "basic" {
     try testNumber(
         .{
             .filename = "src/very/long/hello.txt",
-            .text = "12 12 hello",
+            .source = "12 12 hello",
             .expanded =
             \\╭─⊙ Preview of hello.txt
             \\│ 1 │ 12 12 hello
@@ -334,7 +334,7 @@ test "basic" {
     try testNumber(
         .{
             .filename = "src/very/long/hello.txt",
-            .text = "12 12 hello\nanother line\n",
+            .source = "12 12 hello\nanother line\n",
             .expanded =
             \\╭─⊙ Preview of hello.txt
             \\│ 1 │ 12 12 hello
@@ -355,7 +355,7 @@ test "basic" {
     try testNumber(
         .{
             .filename = "src/very/long/hello.txt",
-            .text = "12 1234 hello",
+            .source = "12 1234 hello",
             .expanded =
             \\╭─⊙ Preview of hello.txt
             \\│ 1 │ 12 1234 hello
@@ -377,7 +377,7 @@ test "big line number" {
     try testNumber(
         .{
             .filename = "src/very/long/hello.txt",
-            .text = "12 12 hello",
+            .source = "12 12 hello",
             .expanded =
             \\╭─⊙ Preview of hello.txt
             \\│ 9 │ 12 12 hello
@@ -399,7 +399,7 @@ test "big line number" {
     try testNumber(
         .{
             .filename = "src/very/long/hello.txt",
-            .text = "12 12 hello",
+            .source = "12 12 hello",
             .expanded =
             \\╭─⊙ Preview of hello.txt
             \\│ 10 │ 12 12 hello
@@ -421,7 +421,7 @@ test "big line number" {
     try testNumber(
         .{
             .filename = "src/very/long/hello.txt",
-            .text = "12 12 hello",
+            .source = "12 12 hello",
             .expanded =
             \\╭─⊙ Preview of hello.txt
             \\│ 555 │ 12 12 hello
@@ -445,7 +445,7 @@ test "across lines" {
     try testNumber(
         .{
             .filename = "src/very/long/hello.txt",
-            .text =
+            .source =
             \\123 123 hello
             \\world 123
             \\123 hello

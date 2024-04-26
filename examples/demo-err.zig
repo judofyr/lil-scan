@@ -4,7 +4,7 @@ const lil = @import("lil-scan");
 // Inspired from: https://biomejs.dev/
 const ex_biome = lil.SingleMessagePresentation{
     .filename = "complexity/useFlatMap.js",
-    .text =
+    .source =
     \\const array = ["split", "the text", "into words"];
     \\array.map(sentence => sentence.split(' ')).flat();
     ,
@@ -25,7 +25,7 @@ const ex_biome = lil.SingleMessagePresentation{
 
 const ex_rust1 = lil.SingleMessagePresentation{
     .filename = "src/test/compile-fail/E0080.rs",
-    .text =
+    .source =
     \\  X = (1 << 500)
     ,
     .msg = &.{
@@ -43,7 +43,7 @@ const ex_rust1 = lil.SingleMessagePresentation{
 
 const ex_rust2 = lil.SingleMessagePresentation{
     .filename = "src/test/compile-fail/E0080.rs",
-    .text =
+    .source =
     \\  Y = (1 / 0)
     ,
     .msg = &.{

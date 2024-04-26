@@ -177,12 +177,12 @@ pub fn main() !void {
             .msg = s.failure.?.msg,
             .span = s.failure.?.span,
             .filename = "(eval)",
-            .text = text,
+            .source = text,
         }, lil.default_theme);
         std.process.exit(1);
     };
 
-    try out.writer().print("{s} = {}\n", .{ s.text, result });
+    try out.writer().print("{s} = {}\n", .{ s.source, result });
 }
 
 // Helpers for precedence parsing:
