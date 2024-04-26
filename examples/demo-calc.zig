@@ -178,7 +178,7 @@ pub fn main() !void {
             .span = s.failure.?.span,
             .filename = "(eval)",
             .text = text,
-        }, lil.DefaultTheme);
+        }, lil.default_theme);
         std.process.exit(1);
     };
 

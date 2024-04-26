@@ -76,7 +76,7 @@ pub const Formatting = struct {
     const reset = "\x1b[0m";
 };
 
-pub const NoopTheme = struct {
+pub const noop_theme = struct {
     pub fn severityTitle(_: diag.Severity) Formatting {
         return .{};
     }
@@ -102,7 +102,7 @@ pub const NoopTheme = struct {
     }
 };
 
-pub const DefaultTheme = struct {
+pub const default_theme = struct {
     pub fn severityTitle(sev: diag.Severity) Formatting {
         return .{ .bold = true, .color = severityColor(sev) };
     }

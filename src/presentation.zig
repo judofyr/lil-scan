@@ -202,13 +202,13 @@ pub const Presenter = struct {
             if (self.options.colors) {
                 try item.writeExpanded(w, theme);
             } else {
-                try item.writeExpanded(w, themes.NoopTheme);
+                try item.writeExpanded(w, themes.noop_theme);
             }
         } else {
             if (self.options.colors) {
                 try item.writeSimple(w, theme);
             } else {
-                try item.writeSimple(w, themes.NoopTheme);
+                try item.writeSimple(w, themes.noop_theme);
             }
         }
         try self.buffered_writer.flush();
@@ -274,22 +274,22 @@ fn testNumber(case: TestCase) !void {
         var result = std.ArrayList(u8).init(testing.allocator);
         defer result.deinit();
 
-        try item.writeExpanded(result.writer(), themes.NoopTheme);
+        try item.writeExpanded(result.writer(), themes.noop_theme);
         try testing.expectEqualStrings(case.expanded, result.items);
 
         result.clearRetainingCapacity();
-        try item.writeExpanded(result.writer(), themes.DefaultTheme);
+        try item.writeExpanded(result.writer(), themes.default_theme);
     }
 
     {
         var result = std.ArrayList(u8).init(testing.allocator);
         defer result.deinit();
 
-        try item.writeSimple(result.writer(), themes.NoopTheme);
+        try item.writeSimple(result.writer(), themes.noop_theme);
         try testing.expectEqualStrings(case.simple, result.items);
 
         result.clearRetainingCapacity();
-        try item.writeSimple(result.writer(), themes.DefaultTheme);
+        try item.writeSimple(result.writer(), themes.default_theme);
     }
 }
 

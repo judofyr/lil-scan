@@ -61,7 +61,7 @@ const ex_rust2 = lil.PresentationItem{
 
 pub fn main() !void {
     var p = lil.Presenter.autoDetect();
-    try p.present(ex_biome, lil.DefaultTheme);
-    try p.present(ex_rust1, lil.DefaultTheme);
-    try p.present(ex_rust2, lil.DefaultTheme);
+    try p.present(ex_biome, lil.default_theme);
+    try p.present(ex_rust1, lil.default_theme);
+    try p.present(ex_rust2, lil.default_theme);
 }
