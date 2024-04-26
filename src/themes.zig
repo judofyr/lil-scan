@@ -12,7 +12,7 @@ pub const Color = union(enum) {
 
     pub fn escSeq(self: Color) []const u8 {
         return switch (self) {
-            .neutral => unreachable,
+            .neutral => unreachable, // LCOV_EXCL_LINE
             .red => "\x1b[31m",
             .green => "\x1b[32m",
             .yellow => "\x1b[33m",
@@ -32,7 +32,7 @@ pub const Color = union(enum) {
             .blue => "\x1b[1;34m",
             .magenta => "\x1b[1;35m",
             .cyan => "\x1b[1;36m",
-            .gray => unreachable,
+            .gray => unreachable, // LCOV_EXCL_LINE
         };
     }
 };

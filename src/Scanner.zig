@@ -214,7 +214,7 @@ test "span" {
         parsers.slice(s.rest(), "abc"),
         &.{ .text = "Expected `abc`" },
     );
-    try testing.expectEqual(diag.Span{
+    try testing.expectEqual(diag.Span{ // LCOV_EXCL_LINE
         .line_number = 0,
         .column_number = 3,
         .len = 0,
@@ -222,7 +222,8 @@ test "span" {
     }, s.restSpan(0));
 
     try s.skip(parsers.whitespaceAscii(s.rest()));
-    try testing.expectEqual(diag.Span{
+    try testing.expectEqual( // LCOV_EXCL_LINE
+        diag.Span{
         .line_number = 1,
         .column_number = 0,
         .len = 0,
@@ -233,7 +234,7 @@ test "span" {
         parsers.slice(s.rest(), "de"),
         &.{ .text = "Expected `de`" },
     );
-    try testing.expectEqual(diag.Span{
+    try testing.expectEqual(diag.Span{ // LCOV_EXCL_LINE
         .line_number = 1,
         .column_number = 2,
         .len = 0,
