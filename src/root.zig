@@ -28,7 +28,7 @@ pub const Severity = diag.Severity;
 const presentation = @import("presentation.zig");
 pub const PresenterOptions = presentation.PresenterOptions;
 pub const Presenter = presentation.Presenter;
-pub const PresentationItem = presentation.PresentationItem;
+pub const SingleMessagePresentation = presentation.SingleMessagePresentation;
 
 const themes = @import("themes.zig");
 pub const Color = themes.Color;

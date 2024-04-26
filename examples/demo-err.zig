@@ -2,7 +2,7 @@ const std = @import("std");
 const lil = @import("lil-scan");
 
 // Inspired from: https://biomejs.dev/
-const ex_biome = lil.PresentationItem{
+const ex_biome = lil.SingleMessagePresentation{
     .filename = "complexity/useFlatMap.js",
     .text =
     \\const array = ["split", "the text", "into words"];
@@ -23,7 +23,7 @@ const ex_biome = lil.PresentationItem{
 
 // https://blog.rust-lang.org/2016/08/10/Shape-of-errors-to-come.html
 
-const ex_rust1 = lil.PresentationItem{
+const ex_rust1 = lil.SingleMessagePresentation{
     .filename = "src/test/compile-fail/E0080.rs",
     .text =
     \\  X = (1 << 500)
@@ -41,7 +41,7 @@ const ex_rust1 = lil.PresentationItem{
     },
 };
 
-const ex_rust2 = lil.PresentationItem{
+const ex_rust2 = lil.SingleMessagePresentation{
     .filename = "src/test/compile-fail/E0080.rs",
     .text =
     \\  Y = (1 / 0)
@@ -61,7 +61,7 @@ const ex_rust2 = lil.PresentationItem{
 
 pub fn main() !void {
     var p = lil.Presenter.autoDetect();
-    try p.present(ex_biome, lil.default_theme);
-    try p.present(ex_rust1, lil.default_theme);
-    try p.present(ex_rust2, lil.default_theme);
+    try p.singleMessage(ex_biome, lil.default_theme);
+    try p.singleMessage(ex_rust1, lil.default_theme);
+    try p.singleMessage(ex_rust2, lil.default_theme);
 }

@@ -173,7 +173,7 @@ pub fn main() !void {
     var s = lil.Scanner.init(text);
 
     const result = parse(&s) catch {
-        try p.present(lil.PresentationItem{
+        try p.singleMessage(lil.SingleMessagePresentation{
             .msg = s.failure.?.msg,
             .span = s.failure.?.span,
             .filename = "(eval)",

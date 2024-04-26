@@ -80,21 +80,30 @@ fn writeDiagnosticTitle(w: anytype, theme: type, msg: *const diag.Message, span:
     });
 }
 
-pub const PresentationItem = struct {
+/// A presentation of a single `Message` happening at the given `Span` in the given `filename`.
+/// If `text` is given then it will also show a preview of the line where it happened.
+pub const SingleMessagePresentation = struct {
+    /// Message to present.
     msg: *const diag.Message,
-    span: diag.Span,
+    /// Filename where the span happened. This would typically be relative to the current directory.
     filename: []const u8,
+    /// Where in the file the message happened.
+    span: diag.Span,
+    /// The source text of the file.
     text: ?[]const u8 = null,
+    /// A short version of the filename. Used in some places to avoid repeating a long filename.
     short_filename: ?[]const u8 = null,
 
-    pub fn writeSimple(self: PresentationItem, w: anytype, theme: type) !void {
+    /// Writes a simple, single line of the information.
+    pub fn writeSimple(self: SingleMessagePresentation, w: anytype, theme: type) !void {
         try writeDiagnosticTitle(w, theme, self.msg, self.span, self.filename);
         try w.writeAll(": ");
         try w.writeAll(self.msg.text);
         try w.writeAll("\n");
     }
 
-    pub fn writeExpanded(self: PresentationItem, w: anytype, theme: type) !void {
+    /// Writes an expanded
+    pub fn writeExpanded(self: SingleMessagePresentation, w: anytype, theme: type) !void {
         const short_filename = self.short_filename orelse std.fs.path.basename(self.filename);
 
         var tl: TitleLine = .{};
@@ -165,10 +174,15 @@ pub const PresentationItem = struct {
     }
 };
 
+/// Different options used by the `Presenter`.
 pub const PresenterOptions = struct {
+    /// When false, no ANSI colors will be printed to the output.
     colors: bool,
     expand: bool,
 
+    /// Detects sensible values for `colors` and `expand` based on the environment and where we
+    /// intend to output the message. This will disable colors if `NO_COLOR` environment variable
+    /// is set or if the output is not a TTY. Expanded mode will only be available for TTY.
     pub fn autoDetect(file: std.fs.File) PresenterOptions {
         var buf: [0]u8 = undefined;
         var fba = std.heap.FixedBufferAllocator.init(&buf);
@@ -191,12 +205,14 @@ pub const Presenter = struct {
         };
     }
 
+    /// Initializes a presenter which outputs to stderr with sensible defaults (see also `PresenterOptions.autoDetect`).
     pub fn autoDetect() Presenter {
         const file = std.io.getStdErr();
         return init(file, PresenterOptions.autoDetect(file));
     }
 
-    pub fn present(self: *Presenter, item: PresentationItem, theme: type) !void {
+    /// Presents a a single message with the given theme.
+    pub fn singleMessage(self: *Presenter, item: SingleMessagePresentation, theme: type) !void {
         const w = self.buffered_writer.writer();
         if (self.options.expand) {
             if (self.options.colors) {
@@ -263,7 +279,7 @@ fn testNumber(case: TestCase) !void {
     parseNumbers(&s) catch {};
     try testing.expect(s.failure != null);
 
-    const item = PresentationItem{
+    const item = SingleMessagePresentation{
         .msg = s.failure.?.msg,
         .span = s.failure.?.span,
         .filename = case.filename,
