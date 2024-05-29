@@ -184,11 +184,9 @@ pub const PresenterOptions = struct {
     /// intend to output the message. This will disable colors if `NO_COLOR` environment variable
     /// is set or if the output is not a TTY. Expanded mode will only be available for TTY.
     pub fn autoDetect(file: std.fs.File) PresenterOptions {
-        var buf: [0]u8 = undefined;
-        var fba = std.heap.FixedBufferAllocator.init(&buf);
         const is_tty = file.isTty();
         return PresenterOptions{
-            .colors = is_tty and !(std.process.hasEnvVar(fba.allocator(), "NO_COLOR") catch true),
+            .colors = is_tty and !std.process.hasEnvVarConstant("NO_COLOR"),
             .expand = is_tty,
         };
     }
