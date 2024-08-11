@@ -1,3 +1,6 @@
+//! The scanner keeps track of the current location while parsing.
+//! The `rest` functions returns the next piece of text to be parsed, while `must`, `maybe`, `skip` advances the state.
+
 const Scanner = @This();
 
 const std = @import("std");
@@ -13,12 +16,17 @@ pos: usize = 0,
 line_number: usize = 0,
 line_start_pos: usize = 0,
 
+/// This field is set whenever one of the functions returns `ParseError`.
 failure: ?Failure = null,
 
+/// The possible errors returned by various functions.
 pub const Error = error{ParseError};
 
+/// Information related to a parse error.
 pub const Failure = struct {
+    /// The message of the parse failure.
     msg: *const diag.Message,
+    /// The span where the failure happened.
     span: diag.Span,
 };
 
@@ -27,6 +35,7 @@ pub fn init(src: []const u8) Scanner {
     return Scanner{ .source = src };
 }
 
+/// Returns a slice from the current position to the end of the source.
 pub fn rest(self: *Scanner) []const u8 {
     return self.source[self.pos..];
 }
@@ -36,6 +45,7 @@ pub fn isDone(self: *Scanner) bool {
     return self.pos == self.source.len;
 }
 
+/// Advances the scanner based on the parse result.
 pub fn skip(self: *Scanner, result: ParseResult) Error!void {
     switch (result) {
         .success => |s| _ = self.advance(s.matched),
@@ -46,6 +56,8 @@ pub fn skip(self: *Scanner, result: ParseResult) Error!void {
     }
 }
 
+/// Advances the scanner based on the parse result.
+/// If the parse result is `nothing` it returns `null`, otherwise the span of the successful result.
 pub fn maybe(self: *Scanner, result: ParseResult) Error!?diag.Span {
     switch (result) {
         .success => |s| {
@@ -58,6 +70,8 @@ pub fn maybe(self: *Scanner, result: ParseResult) Error!?diag.Span {
     }
 }
 
+/// Advances the scanner based on the parse result.
+/// If the parse result is `nothing` it will cause an error with the given message.
 pub fn must(self: *Scanner, result: ParseResult, msg: *const diag.Message) Error!diag.Span {
     switch (result) {
         .success => |s| return self.advance(s.matched),
@@ -70,6 +84,8 @@ pub fn must(self: *Scanner, result: ParseResult, msg: *const diag.Message) Error
     }
 }
 
+/// Advances the position of the scanner by a given amount of bytes,
+/// returning a span to what we advanced over.
 pub fn advance(self: *Scanner, len: usize) diag.Span {
     const span = self.restSpan(len);
     for (self.source[self.pos..][0..len]) |ch| {
@@ -82,6 +98,7 @@ pub fn advance(self: *Scanner, len: usize) diag.Span {
     return span;
 }
 
+/// Returns a span of the given length which starts at the current position.
 pub fn restSpan(self: *Scanner, len: usize) diag.Span {
     return diag.Span{
         .line_number = self.line_number,
@@ -91,10 +108,12 @@ pub fn restSpan(self: *Scanner, len: usize) diag.Span {
     };
 }
 
+/// Returns the bytes for a given span.
 pub fn sliceFromSpan(self: *Scanner, span: diag.Span) []const u8 {
     return self.source[span.line_start_pos + span.column_number ..][0..span.len];
 }
 
+/// Marks the scanner as failed. This sets the `failure` field and returns a parse error.
 pub fn fail(self: *Scanner, msg: *const diag.Message, span: diag.Span) error{ParseError}!noreturn {
     self.failure = Failure{
         .msg = msg,
@@ -224,11 +243,11 @@ test "span" {
     try s.skip(parsers.whitespaceAscii(s.rest()));
     try testing.expectEqual( // LCOV_EXCL_LINE
         diag.Span{
-            .line_number = 1,
-            .column_number = 0,
-            .len = 0,
-            .line_start_pos = 4,
-        }, s.restSpan(0));
+        .line_number = 1,
+        .column_number = 0,
+        .len = 0,
+        .line_start_pos = 4,
+    }, s.restSpan(0));
 
     _ = try s.must(
         parsers.slice(s.rest(), "de"),

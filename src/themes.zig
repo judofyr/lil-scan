@@ -1,5 +1,6 @@
 const diag = @import("diag.zig");
 
+/// Terminal colors which can be used in themes.
 pub const Color = union(enum) {
     neutral,
     red,
@@ -10,7 +11,7 @@ pub const Color = union(enum) {
     cyan,
     gray,
 
-    pub fn escSeq(self: Color) []const u8 {
+    fn escSeq(self: Color) []const u8 {
         return switch (self) {
             .neutral => unreachable, // LCOV_EXCL_LINE
             .red => "\x1b[31m",
@@ -23,7 +24,7 @@ pub const Color = union(enum) {
         };
     }
 
-    pub fn boldEscSeq(self: Color) []const u8 {
+    fn boldEscSeq(self: Color) []const u8 {
         return switch (self) {
             .neutral => "\x1b[1m",
             .red => "\x1b[1;31m",
@@ -37,20 +38,23 @@ pub const Color = union(enum) {
     }
 };
 
+/// Formatting which can be used in themes.
 pub const Formatting = struct {
     bold: bool = false,
     color: Color = .neutral,
 
-    pub fn isDefault(self: Formatting) bool {
+    fn isDefault(self: Formatting) bool {
         return self.bold == false and self.color == .neutral;
     }
 
+    /// Internal method.
     pub fn withColor(self: Formatting, color: Color) Formatting {
         var f = self;
         f.color = color;
         return f;
     }
 
+    /// Internal method.
     pub fn print(self: Formatting, w: anytype, comptime fmt: []const u8, args: anytype) !void {
         if (self.isDefault()) {
             try w.print(fmt, args);
@@ -61,6 +65,7 @@ pub const Formatting = struct {
         }
     }
 
+    /// Internal method.
     pub fn writeAll(self: Formatting, w: anytype, buf: []const u8) !void {
         if (self.isDefault()) {
             try w.writeAll(buf);
@@ -71,7 +76,7 @@ pub const Formatting = struct {
         }
     }
 
-    pub fn escSeq(self: Formatting) []const u8 {
+    fn escSeq(self: Formatting) []const u8 {
         if (self.bold) {
             return self.color.boldEscSeq();
         } else {
@@ -82,6 +87,7 @@ pub const Formatting = struct {
     const reset = "\x1b[0m";
 };
 
+/// The theme used when presenting a message.
 pub const Theme = struct {
     border: Formatting,
     previewTitle: Formatting,
@@ -106,6 +112,7 @@ pub const Theme = struct {
     }
 };
 
+/// The default theme.
 pub const default_theme: *const Theme = &.{
     .border = .{ .color = .gray },
     .previewTitle = .{ .bold = true, .color = .green },
@@ -121,6 +128,7 @@ pub const default_theme: *const Theme = &.{
     .hintColor = .magenta,
 };
 
+/// A theme which uses no colors or formatting.
 pub const noop_theme: *const Theme = &.{
     .border = .{},
     .previewTitle = .{},

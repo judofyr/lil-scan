@@ -81,7 +81,7 @@ fn writeDiagnosticTitle(w: anytype, theme: *const themes.Theme, msg: *const diag
 }
 
 /// A presentation of a single `Message` happening at the given `Span` in the given `filename`.
-/// If `text` is given then it will also show a preview of the line where it happened.
+/// If `source` is given then it will also show a preview of the line where it happened.
 pub const SingleMessagePresentation = struct {
     /// Message to present.
     msg: *const diag.Message,
@@ -95,7 +95,7 @@ pub const SingleMessagePresentation = struct {
     short_filename: ?[]const u8 = null,
 
     /// Writes a simple, single line of the information.
-    pub fn writeSimple(self: SingleMessagePresentation, w: anytype, theme: *const themes.Theme) !void {
+    fn writeSimple(self: SingleMessagePresentation, w: anytype, theme: *const themes.Theme) !void {
         try writeDiagnosticTitle(w, theme, self.msg, self.span, self.filename);
         try w.writeAll(": ");
         try w.writeAll(self.msg.text);
@@ -103,7 +103,7 @@ pub const SingleMessagePresentation = struct {
     }
 
     /// Writes an expanded
-    pub fn writeExpanded(self: SingleMessagePresentation, w: anytype, theme: *const themes.Theme) !void {
+    fn writeExpanded(self: SingleMessagePresentation, w: anytype, theme: *const themes.Theme) !void {
         const short_filename = self.short_filename orelse std.fs.path.basename(self.filename);
 
         var tl: TitleLine = .{};
@@ -176,8 +176,9 @@ pub const SingleMessagePresentation = struct {
 
 /// Different options used by the `Presenter`.
 pub const PresenterOptions = struct {
-    /// When false, no ANSI colors will be printed to the output.
+    /// Whether to show a fully expanded message or only a single line.
     expand: bool,
+    /// The formatting used for presenting all messages.
     theme: *const themes.Theme,
 
     /// Detects sensible values for `colors` and `expand` based on the environment and where we
@@ -203,10 +204,13 @@ pub const PresenterOptions = struct {
     }
 };
 
+///
 pub const Presenter = struct {
     options: PresenterOptions,
     buffered_writer: std.io.BufferedWriter(4096, std.fs.File.Writer),
 
+    /// Initializes a presenter with a specific set of options.
+    /// This is a more advanced option and most of the time `autoDetect` does exactly what you want.
     pub fn init(file: std.fs.File, options: PresenterOptions) Presenter {
         return Presenter{
             .buffered_writer = .{ .unbuffered_writer = file.writer() },
@@ -220,7 +224,7 @@ pub const Presenter = struct {
         return init(file, PresenterOptions.autoDetect(file, themes.default_theme));
     }
 
-    /// Presents a a single message with the given theme.
+    /// Presents a a single message.
     pub fn present(self: *Presenter, item: anytype) !void {
         const w = self.buffered_writer.writer();
         if (self.options.expand) {

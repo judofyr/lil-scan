@@ -3,20 +3,29 @@ const testing = std.testing;
 
 const diag = @import("diag.zig");
 
+/// The result from a successful parse operation.
 pub const ParseSuccess = struct {
+    /// The number of bytes matched in the string.
     matched: usize,
 };
 
+/// The result from a failed parse operation.
 pub const ParseFailure = struct {
+    /// An error message related to the failure.
     msg: *const diag.Message,
+
+    /// The length of the failure.
     len: usize,
 };
 
+/// Represents the result from a parse operation.
+/// This is usually not inspected directly, but is rather passed to one of `must`, `maybe`, `skip`.
 pub const ParseResult = union(enum) {
     success: ParseSuccess,
     failure: ParseFailure,
     nothing,
 
+    /// Creates a new parse result from a length, treating zero-length as `nothing`.
     pub fn from_len(len: usize) ParseResult {
         if (len == 0) {
             return .nothing;
@@ -26,6 +35,7 @@ pub const ParseResult = union(enum) {
     }
 };
 
+/// Parses the end of the text.
 pub fn eof(text: []const u8) ParseResult {
     if (text.len == 0) {
         return .{ .success = .{ .matched = 0 } };
@@ -34,6 +44,7 @@ pub fn eof(text: []const u8) ParseResult {
     }
 }
 
+/// Parses a slice exactly.
 pub fn slice(text: []const u8, s: []const u8) ParseResult {
     if (std.mem.startsWith(u8, text, s)) {
         return ParseResult.from_len(s.len);
@@ -47,6 +58,7 @@ test "slice" {
     try expectNothing(slice("abcdef", "abdef"));
 }
 
+/// Parses ASCII characters as long as the function returns true.
 pub fn whenAscii(text: []const u8, f: *const fn (ch: u8) bool) ParseResult {
     var len: usize = 0;
     for (text) |ch| {
@@ -56,30 +68,37 @@ pub fn whenAscii(text: []const u8, f: *const fn (ch: u8) bool) ParseResult {
     return ParseResult.from_len(len);
 }
 
+/// Parses whitespace characters, as defined by `std.ascii.isWhitespace`.
 pub fn whitespaceAscii(text: []const u8) ParseResult {
     return whenAscii(text, std.ascii.isWhitespace);
 }
 
+/// Parses digits, as defined by `std.ascii.isDigit`.
 pub fn digitAscii(text: []const u8) ParseResult {
     return whenAscii(text, std.ascii.isDigit);
 }
 
+/// Parses alphabetic characters, as defined by `std.ascii.isAlphabetic`.
 pub fn alphabeticAscii(text: []const u8) ParseResult {
     return whenAscii(text, std.ascii.isAlphabetic);
 }
 
+/// Parses alphanumeric characters, as defined by `std.ascii.isAlphanumeric`.
 pub fn alphanumericAscii(text: []const u8) ParseResult {
     return whenAscii(text, std.ascii.isAlphanumeric);
 }
 
+/// Parses upper case characters, as defined by `std.ascii.isUpper`.
 pub fn upperAscii(text: []const u8) ParseResult {
     return whenAscii(text, std.ascii.isUpper);
 }
 
+/// Parses lower case characters, as defined by `std.ascii.isLower`.
 pub fn lowerAscii(text: []const u8) ParseResult {
     return whenAscii(text, std.ascii.isLower);
 }
 
+/// Parses hex characters, as defined by `std.ascii.isHex`.
 pub fn hexAscii(text: []const u8) ParseResult {
     return whenAscii(text, std.ascii.isHex);
 }
@@ -119,6 +138,7 @@ test "notAscii" {
     }
 }
 
+/// Parses UTF-8 charcaters, for as long as the function returns true.
 pub fn whenUtf8(text: []const u8, f: *const fn (cp: u21) bool) ParseResult {
     var view = std.unicode.Utf8View.initUnchecked(text);
     var it = view.iterator();
@@ -152,6 +172,7 @@ fn integerAddDigit(comptime T: type, result: *T, digit: i8) !void {
     result.* = try std.math.add(T, result.*, @intCast(digit));
 }
 
+/// Parses a simple integer on the form `-?[0-9]+`.
 pub fn integerAscii(text: []const u8, comptime T: type, result: *T) ParseResult {
     const is_signed = @typeInfo(T).int.signedness == .signed;
 
