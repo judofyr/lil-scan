@@ -66,14 +66,14 @@ fn severityText(sev: diag.Severity) []const u8 {
     };
 }
 
-fn writeDiagnosticTitle(w: anytype, theme: type, msg: *const diag.Message, span: diag.Span, filename: []const u8) !void {
-    try theme.severityTitle(msg.severity).writeAll(w, severityText(msg.severity));
+fn writeDiagnosticTitle(w: anytype, theme: *const themes.Theme, msg: *const diag.Message, span: diag.Span, filename: []const u8) !void {
+    try theme.severityTitle.withColor(theme.severityColor(msg.severity)).writeAll(w, severityText(msg.severity));
     if (msg.code) |code| {
         try w.writeAll(" ");
-        try theme.severityCode(msg.severity).writeAll(w, code);
+        try theme.severityCode.withColor(theme.severityColor(msg.severity)).writeAll(w, code);
     }
     try w.writeAll(" in ");
-    try theme.messageSpan().print(w, "{s}:{d}:{d}", .{
+    try theme.messageSpan.print(w, "{s}:{d}:{d}", .{
         filename,
         span.line_number + 1,
         span.column_number + 1,
@@ -95,7 +95,7 @@ pub const SingleMessagePresentation = struct {
     short_filename: ?[]const u8 = null,
 
     /// Writes a simple, single line of the information.
-    pub fn writeSimple(self: SingleMessagePresentation, w: anytype, theme: type) !void {
+    pub fn writeSimple(self: SingleMessagePresentation, w: anytype, theme: *const themes.Theme) !void {
         try writeDiagnosticTitle(w, theme, self.msg, self.span, self.filename);
         try w.writeAll(": ");
         try w.writeAll(self.msg.text);
@@ -103,7 +103,7 @@ pub const SingleMessagePresentation = struct {
     }
 
     /// Writes an expanded
-    pub fn writeExpanded(self: SingleMessagePresentation, w: anytype, theme: type) !void {
+    pub fn writeExpanded(self: SingleMessagePresentation, w: anytype, theme: *const themes.Theme) !void {
         const short_filename = self.short_filename orelse std.fs.path.basename(self.filename);
 
         var tl: TitleLine = .{};
@@ -112,22 +112,22 @@ pub const SingleMessagePresentation = struct {
             const from_line_start = text[self.span.line_start_pos..];
             const line_end = std.mem.indexOfScalar(u8, from_line_start, '\n') orelse from_line_start.len;
             const line = from_line_start[0..line_end];
-            try theme.border().writeAll(w, tl.title());
-            try theme.previewTitle().writeAll(w, "Preview");
+            try theme.border.writeAll(w, tl.title());
+            try theme.previewTitle.writeAll(w, "Preview");
             try w.writeAll(" of ");
-            try theme.previewTarget().writeAll(w, short_filename);
+            try theme.previewTarget.writeAll(w, short_filename);
             try w.writeAll("\n");
 
             const digits = std.math.log10_int(self.span.line_number + 1) + 1;
             var aligned: Sidebar = .{ .width = digits };
 
-            try theme.border().writeAll(w, tl.content());
-            try theme.border().writeAll(w, aligned.fmt("{d}", .{self.span.line_number + 1}));
+            try theme.border.writeAll(w, tl.content());
+            try theme.border.writeAll(w, aligned.fmt("{d}", .{self.span.line_number + 1}));
             try w.writeAll(line);
             try w.writeAll("\n");
 
-            try theme.border().writeAll(w, tl.content());
-            try theme.border().writeAll(w, aligned.fmtLast("", .{}));
+            try theme.border.writeAll(w, tl.content());
+            try theme.border.writeAll(w, aligned.fmtLast("", .{}));
             try w.writeBytesNTimes(" ", self.span.column_number);
             try w.writeBytesNTimes("^", @min(
                 self.span.len,
@@ -138,38 +138,38 @@ pub const SingleMessagePresentation = struct {
             try w.writeAll("\n");
         }
 
-        try theme.border().writeAll(w, tl.title());
+        try theme.border.writeAll(w, tl.title());
         try writeDiagnosticTitle(w, theme, self.msg, self.span, self.filename);
         try w.writeAll("\n");
 
-        try theme.border().writeAll(w, tl.content());
+        try theme.border.writeAll(w, tl.content());
         try w.writeAll(self.msg.text);
         try w.writeAll("\n");
 
-        try theme.border().writeAll(w, tl.content());
+        try theme.border.writeAll(w, tl.content());
         try w.writeAll("\n");
 
-        try theme.border().writeAll(w, tl.content());
+        try theme.border.writeAll(w, tl.content());
         try w.print("File: {s}", .{short_filename});
         try w.writeAll("\n");
 
-        try theme.border().writeAll(w, tl.content());
+        try theme.border.writeAll(w, tl.content());
         try w.print("Line: {d}", .{self.span.line_number + 1});
         try w.writeAll("\n");
 
         if (self.msg.code) |code| {
-            try theme.border().writeAll(w, tl.content());
+            try theme.border.writeAll(w, tl.content());
             try w.print("Code: {s}", .{code});
             try w.writeAll("\n");
         }
 
         if (self.msg.url) |url| {
-            try theme.border().writeAll(w, tl.content());
+            try theme.border.writeAll(w, tl.content());
             try w.print("URL: {s}", .{url});
             try w.writeAll("\n");
         }
 
-        try theme.border().writeAll(w, tl.close());
+        try theme.border.writeAll(w, tl.close());
         try w.writeAll("\n");
     }
 };
@@ -177,17 +177,18 @@ pub const SingleMessagePresentation = struct {
 /// Different options used by the `Presenter`.
 pub const PresenterOptions = struct {
     /// When false, no ANSI colors will be printed to the output.
-    colors: bool,
     expand: bool,
+    theme: *const themes.Theme,
 
     /// Detects sensible values for `colors` and `expand` based on the environment and where we
     /// intend to output the message. This will disable colors if `NO_COLOR` environment variable
     /// is set or if the output is not a TTY. Expanded mode will only be available for TTY.
-    pub fn autoDetect(file: std.fs.File) PresenterOptions {
+    pub fn autoDetect(file: std.fs.File, color_theme: *const themes.Theme) PresenterOptions {
         const is_tty = file.isTty();
+        const colors = is_tty and !std.process.hasEnvVarConstant("NO_COLOR");
         return PresenterOptions{
-            .colors = is_tty and !std.process.hasEnvVarConstant("NO_COLOR"),
             .expand = is_tty,
+            .theme = if (colors) color_theme else themes.noop_theme,
         };
     }
 };
@@ -206,24 +207,16 @@ pub const Presenter = struct {
     /// Initializes a presenter which outputs to stderr with sensible defaults (see also `PresenterOptions.autoDetect`).
     pub fn autoDetect() Presenter {
         const file = std.io.getStdErr();
-        return init(file, PresenterOptions.autoDetect(file));
+        return init(file, PresenterOptions.autoDetect(file, themes.default_theme));
     }
 
     /// Presents a a single message with the given theme.
-    pub fn singleMessage(self: *Presenter, item: SingleMessagePresentation, theme: type) !void {
+    pub fn present(self: *Presenter, item: anytype) !void {
         const w = self.buffered_writer.writer();
         if (self.options.expand) {
-            if (self.options.colors) {
-                try item.writeExpanded(w, theme);
-            } else {
-                try item.writeExpanded(w, themes.noop_theme);
-            }
+            try item.writeExpanded(w, self.options.theme);
         } else {
-            if (self.options.colors) {
-                try item.writeSimple(w, theme);
-            } else {
-                try item.writeSimple(w, themes.noop_theme);
-            }
+            try item.writeSimple(w, self.options.theme);
         }
         try self.buffered_writer.flush();
     }

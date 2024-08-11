@@ -36,5 +36,6 @@ pub const SingleMessagePresentation = presentation.SingleMessagePresentation;
 const themes = @import("themes.zig");
 pub const Color = themes.Color;
 pub const Formatting = themes.Formatting;
+pub const Theme = themes.Theme;
 pub const default_theme = themes.default_theme;
 pub const noop_theme = themes.noop_theme;

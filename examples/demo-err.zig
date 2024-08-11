@@ -61,7 +61,7 @@ const ex_rust2 = lil.SingleMessagePresentation{
 
 pub fn main() !void {
     var p = lil.Presenter.autoDetect();
-    try p.singleMessage(ex_biome, lil.default_theme);
-    try p.singleMessage(ex_rust1, lil.default_theme);
-    try p.singleMessage(ex_rust2, lil.default_theme);
+    try p.present(ex_biome);
+    try p.present(ex_rust1);
+    try p.present(ex_rust2);
 }

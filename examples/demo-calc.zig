@@ -173,12 +173,12 @@ pub fn main() !void {
     var s = lil.Scanner.init(text);
 
     const result = parse(&s) catch {
-        try p.singleMessage(lil.SingleMessagePresentation{
+        try p.present(lil.SingleMessagePresentation{
             .msg = s.failure.?.msg,
             .span = s.failure.?.span,
             .filename = "(eval)",
             .source = text,
-        }, lil.default_theme);
+        });
         std.process.exit(1);
     };
 

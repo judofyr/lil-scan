@@ -45,6 +45,12 @@ pub const Formatting = struct {
         return self.bold == false and self.color == .neutral;
     }
 
+    pub fn withColor(self: Formatting, color: Color) Formatting {
+        var f = self;
+        f.color = color;
+        return f;
+    }
+
     pub fn print(self: Formatting, w: anytype, comptime fmt: []const u8, args: anytype) !void {
         if (self.isDefault()) {
             try w.print(fmt, args);
@@ -76,63 +82,56 @@ pub const Formatting = struct {
     const reset = "\x1b[0m";
 };
 
-pub const noop_theme = struct {
-    pub fn severityTitle(_: diag.Severity) Formatting {
-        return .{};
-    }
+pub const Theme = struct {
+    border: Formatting,
+    previewTitle: Formatting,
+    previewTarget: Formatting,
+    messageSpan: Formatting,
 
-    pub fn severityCode(_: diag.Severity) Formatting {
-        return .{};
-    }
+    severityTitle: Formatting,
+    severityCode: Formatting,
 
-    pub fn border() Formatting {
-        return .{};
-    }
+    errColor: Color,
+    warnColor: Color,
+    infoColor: Color,
+    hintColor: Color,
 
-    pub fn previewTitle() Formatting {
-        return .{};
-    }
-
-    pub fn previewTarget() Formatting {
-        return .{};
-    }
-
-    pub fn messageSpan() Formatting {
-        return .{};
+    pub fn severityColor(self: *const Theme, sev: diag.Severity) Color {
+        return switch (sev) {
+            .err => self.errColor,
+            .warn => self.warnColor,
+            .info => self.infoColor,
+            .hint => self.hintColor,
+        };
     }
 };
 
-pub const default_theme = struct {
-    pub fn severityTitle(sev: diag.Severity) Formatting {
-        return .{ .bold = true, .color = severityColor(sev) };
-    }
+pub const default_theme: *const Theme = &.{
+    .border = .{ .color = .gray },
+    .previewTitle = .{ .bold = true, .color = .green },
+    .previewTarget = .{ .bold = true },
+    .messageSpan = .{ .bold = true },
 
-    pub fn severityCode(sev: diag.Severity) Formatting {
-        return .{ .color = severityColor(sev) };
-    }
+    .severityTitle = .{ .bold = true },
+    .severityCode = .{},
 
-    fn severityColor(sev: diag.Severity) Color {
-        return switch (sev) {
-            .err => .red,
-            .warn => .yellow,
-            .info => .blue,
-            .hint => .magenta,
-        };
-    }
+    .errColor = .red,
+    .warnColor = .yellow,
+    .infoColor = .blue,
+    .hintColor = .magenta,
+};
 
-    pub fn border() Formatting {
-        return .{ .color = .gray };
-    }
+pub const noop_theme: *const Theme = &.{
+    .border = .{},
+    .previewTitle = .{},
+    .previewTarget = .{},
+    .messageSpan = .{},
 
-    pub fn previewTitle() Formatting {
-        return .{ .bold = true, .color = .green };
-    }
+    .severityTitle = .{},
+    .severityCode = .{},
 
-    pub fn previewTarget() Formatting {
-        return .{ .bold = true };
-    }
-
-    pub fn messageSpan() Formatting {
-        return .{ .bold = true };
-    }
+    .errColor = .neutral,
+    .warnColor = .neutral,
+    .infoColor = .neutral,
+    .hintColor = .neutral,
 };
