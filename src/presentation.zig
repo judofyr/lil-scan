@@ -185,11 +185,21 @@ pub const PresenterOptions = struct {
     /// is set or if the output is not a TTY. Expanded mode will only be available for TTY.
     pub fn autoDetect(file: std.fs.File, color_theme: *const themes.Theme) PresenterOptions {
         const is_tty = file.isTty();
-        const colors = is_tty and !std.process.hasEnvVarConstant("NO_COLOR");
         return PresenterOptions{
             .expand = is_tty,
-            .theme = if (colors) color_theme else themes.noop_theme,
+            .theme = if (hasColors(is_tty)) color_theme else themes.noop_theme,
         };
+    }
+
+    // Direct implementation of https://bixense.com/clicolors/
+    fn hasColors(is_tty: bool) bool {
+        if (std.process.hasEnvVarConstant("NO_COLOR")) {
+            return false;
+        } else if (std.process.hasEnvVarConstant("CLICOLOR_FORCE")) {
+            return true;
+        } else {
+            return is_tty;
+        }
     }
 };
 

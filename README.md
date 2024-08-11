@@ -22,7 +22,7 @@ One of the main value it provides is the _diagnostic_ system which makes it easy
   - The source is include with arrows pointing to the exact place.
   - [Deliberate design decisions.](DESIGN.adoc)
   - Automatically detects if stderr is _not_ a TTY and then prints single-line errors.
-  - Respects [`NO_COLOR`](https://no-color.org/).
+  - Respects [`NO_COLOR`](https://no-color.org/) and [`CLICOLOR_FORCE`](https://bixense.com/clicolors/).
   - Tagging during scanning enables syntax highlighted error messages *(planned)*.
 - **Follows best practices:**:
   - Zero allocations.
