@@ -153,7 +153,7 @@ fn integerAddDigit(comptime T: type, result: *T, digit: i8) !void {
 }
 
 pub fn integerAscii(text: []const u8, comptime T: type, result: *T) ParseResult {
-    const is_signed = @typeInfo(T).Int.signedness == .signed;
+    const is_signed = @typeInfo(T).int.signedness == .signed;
 
     result.* = 0;
     var len: usize = 0;
