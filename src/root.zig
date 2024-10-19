@@ -8,6 +8,7 @@ const parsers = @import("parsers.zig");
 pub const ParseResult = parsers.ParseResult;
 pub const ParseSuccess = parsers.ParseSuccess;
 pub const ParseFailure = parsers.ParseFailure;
+pub const eof = parsers.eof;
 pub const slice = parsers.slice;
 pub const whenAscii = parsers.whenAscii;
 pub const whitespaceAscii = parsers.whitespaceAscii;

@@ -26,6 +26,14 @@ pub const ParseResult = union(enum) {
     }
 };
 
+pub fn eof(text: []const u8) ParseResult {
+    if (text.len == 0) {
+        return .{ .success = .{ .matched = 0 } };
+    } else {
+        return .nothing;
+    }
+}
+
 pub fn slice(text: []const u8, s: []const u8) ParseResult {
     if (std.mem.startsWith(u8, text, s)) {
         return ParseResult.from_len(s.len);
