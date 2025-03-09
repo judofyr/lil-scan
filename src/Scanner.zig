@@ -224,11 +224,11 @@ test "span" {
     try s.skip(parsers.whitespaceAscii(s.rest()));
     try testing.expectEqual( // LCOV_EXCL_LINE
         diag.Span{
-        .line_number = 1,
-        .column_number = 0,
-        .len = 0,
-        .line_start_pos = 4,
-    }, s.restSpan(0));
+            .line_number = 1,
+            .column_number = 0,
+            .len = 0,
+            .line_start_pos = 4,
+        }, s.restSpan(0));
 
     _ = try s.must(
         parsers.slice(s.rest(), "de"),
