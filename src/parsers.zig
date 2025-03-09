@@ -113,31 +113,6 @@ test "ascii" {
     try expectSuccess(8, hexAscii("abc0123fg"));
 }
 
-pub fn notAscii(text: []const u8, f: *const fn (ch: u8) bool) ParseResult {
-    if (text.len == 0 or !f(text[0])) {
-        return .{ .success = .{ .matched = 0 } };
-    } else {
-        return .nothing;
-    }
-}
-
-test "notAscii" {
-    {
-        const result = notAscii("abc", std.ascii.isAlphabetic);
-        try expectNothing(result);
-    }
-
-    {
-        const result = notAscii(" abc", std.ascii.isAlphabetic);
-        try expectSuccess(0, result);
-    }
-
-    {
-        const result = notAscii("", std.ascii.isAlphabetic);
-        try expectSuccess(0, result);
-    }
-}
-
 /// Parses UTF-8 charcaters, for as long as the function returns true.
 pub fn whenUtf8(text: []const u8, f: *const fn (cp: u21) bool) ParseResult {
     var view = std.unicode.Utf8View.initUnchecked(text);
