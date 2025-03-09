@@ -44,6 +44,11 @@ pub fn eof(text: []const u8) ParseResult {
     }
 }
 
+test "eof" {
+    try expectSuccess(0, eof(""));
+    try expectNothing(eof(" "));
+}
+
 /// Parses a slice exactly.
 pub fn slice(text: []const u8, s: []const u8) ParseResult {
     if (std.mem.startsWith(u8, text, s)) {
