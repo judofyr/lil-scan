@@ -124,6 +124,10 @@ pub const SingleMessagePresentation = struct {
             try theme.border.writeAll(w, tl.content());
             try theme.border.writeAll(w, aligned.fmt("{d}", .{self.span.line_number + 1}));
             try w.writeAll(line);
+            if (self.span.column_number + self.span.len > line.len) {
+                // Print a character representing newline if the message actually spans it.
+                try w.writeAll("⏎");
+            }
             try w.writeAll("\n");
 
             try theme.border.writeAll(w, tl.content());
@@ -133,7 +137,7 @@ pub const SingleMessagePresentation = struct {
                 self.span.len,
                 // This is our very basic way of handling multiple lines for now:
                 // We only show the first line.
-                line.len - self.span.column_number,
+                line.len - self.span.column_number + 1,
             ));
             try w.writeAll("\n");
         }
@@ -278,10 +282,14 @@ const TestCase = struct {
 };
 
 fn testNumber(case: TestCase) !void {
+    try testCase(case, parseNumbers);
+}
+
+fn testCase(case: TestCase, f: *const fn (*Scanner) Scanner.Error!void) !void {
     var s = Scanner.init(case.source);
     s.line_number += case.adjust_line_start;
 
-    parseNumbers(&s) catch {};
+    f(&s) catch {};
     try testing.expect(s.failure != null);
 
     const item = SingleMessagePresentation{
@@ -376,6 +384,26 @@ test "basic" {
             .simple = "Error in src/very/long/hello.txt:1:4: Integer is too large.\n",
         },
     );
+
+    try testNumber(
+        .{
+            .filename = "src/very/long/hello.txt",
+            .source = "12 1234",
+            .expanded =
+            \\╭─⊙ Preview of hello.txt
+            \\│ 1 │ 12 1234
+            \\│   ╵    ^^^^
+            \\├─⊙ Error in src/very/long/hello.txt:1:4
+            \\│ Integer is too large.
+            \\│ 
+            \\│ File: hello.txt
+            \\│ Line: 1
+            \\╯
+            \\
+            ,
+            .simple = "Error in src/very/long/hello.txt:1:4: Integer is too large.\n",
+        },
+    );
 }
 
 test "big line number" {
@@ -458,8 +486,8 @@ test "across lines" {
             ,
             .expanded =
             \\╭─⊙ Preview of hello.txt
-            \\│ 3 │ 123 hello
-            \\│   ╵     ^^^^^
+            \\│ 3 │ 123 hello⏎
+            \\│   ╵     ^^^^^^
             \\├─⊙ Error in src/very/long/hello.txt:3:5
             \\│ Unexpected token.
             \\│ 
@@ -472,4 +500,34 @@ test "across lines" {
             .simple = "Error in src/very/long/hello.txt:3:5: Unexpected token.\n",
         },
     );
+}
+
+test "newline" {
+    const parse = struct {
+        fn parse(s: *Scanner) !void {
+            _ = try s.must(parsers.slice(s.rest(), "hello"), &.{ .text = "Expected hello." });
+            _ = try s.must(parsers.slice(s.rest(), "world"), &.{ .text = "Expected world." });
+        }
+    }.parse;
+
+    try testCase(.{
+        .filename = "src/very/long/hello.txt",
+        .source =
+        \\hello
+        \\world
+        ,
+        .expanded =
+        \\╭─⊙ Preview of hello.txt
+        \\│ 1 │ hello⏎
+        \\│   ╵      ^
+        \\├─⊙ Error in src/very/long/hello.txt:1:6
+        \\│ Expected world.
+        \\│ 
+        \\│ File: hello.txt
+        \\│ Line: 1
+        \\╯
+        \\
+        ,
+        .simple = "Error in src/very/long/hello.txt:1:6: Expected world.\n",
+    }, parse);
 }
