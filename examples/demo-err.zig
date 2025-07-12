@@ -60,7 +60,8 @@ const ex_rust2 = lil.SingleMessagePresentation{
 };
 
 pub fn main() !void {
-    var p = lil.Presenter.autoDetect();
+    var buf: [4096]u8 = undefined;
+    var p = lil.Presenter.autoDetect(&buf);
     try p.present(ex_biome);
     try p.present(ex_rust1);
     try p.present(ex_rust2);

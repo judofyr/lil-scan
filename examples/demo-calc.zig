@@ -161,18 +161,21 @@ pub fn main() !void {
     var args = try std.process.argsWithAllocator(allocator);
     defer args.deinit();
 
-    var out = std.io.getStdOut();
+    var out = std.fs.File.stdout();
 
     const program_name = args.next() orelse "lil-calc";
     const text = args.next() orelse {
-        try out.writer().print("usage: {s} EXPR\n", .{program_name});
+        var buf: [256]u8 = undefined;
+        var w = out.writer(&buf);
+        try w.interface.print("usage: {s} EXPR\n", .{program_name});
         std.process.exit(0);
     };
 
-    var p = lil.Presenter.autoDetect();
+    var buf: [4096]u8 = undefined;
     var s = lil.Scanner.init(text);
 
     const result = parse(&s) catch {
+        var p = lil.Presenter.autoDetect(&buf);
         try p.present(lil.SingleMessagePresentation{
             .msg = s.failure.?.msg,
             .span = s.failure.?.span,
@@ -182,7 +185,8 @@ pub fn main() !void {
         std.process.exit(1);
     };
 
-    try out.writer().print("{s} = {}\n", .{ s.source, result });
+    var w = out.writer(&buf);
+    try w.interface.print("{s} = {}\n", .{ s.source, result });
 }
 
 // Helpers for precedence parsing:

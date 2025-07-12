@@ -152,7 +152,8 @@ It's typically initialized from `autoDetect` which will present errors to `stder
 
 ```zig
 // Create a presenter:
-var pres = lil.Presenter.autoDetect();
+var buf: [4096]u8 = undefined;
+var pres = lil.Presenter.autoDetect(&buf);
 
 // Present a single message:
 var s = lil.Scanner.init(source);

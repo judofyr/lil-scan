@@ -66,7 +66,7 @@ fn severityText(sev: diag.Severity) []const u8 {
     };
 }
 
-fn writeDiagnosticTitle(w: anytype, theme: *const themes.Theme, msg: *const diag.Message, span: diag.Span, filename: []const u8) !void {
+fn writeDiagnosticTitle(w: *std.io.Writer, theme: *const themes.Theme, msg: *const diag.Message, span: diag.Span, filename: []const u8) !void {
     try theme.severityTitle.withColor(theme.severityColor(msg.severity)).writeAll(w, severityText(msg.severity));
     if (msg.code) |code| {
         try w.writeAll(" ");
@@ -95,7 +95,7 @@ pub const SingleMessagePresentation = struct {
     short_filename: ?[]const u8 = null,
 
     /// Writes a simple, single line of the information.
-    fn writeSimple(self: SingleMessagePresentation, w: anytype, theme: *const themes.Theme) !void {
+    fn writeSimple(self: SingleMessagePresentation, w: *std.io.Writer, theme: *const themes.Theme) !void {
         try writeDiagnosticTitle(w, theme, self.msg, self.span, self.filename);
         try w.writeAll(": ");
         try w.writeAll(self.msg.text);
@@ -103,7 +103,7 @@ pub const SingleMessagePresentation = struct {
     }
 
     /// Writes an expanded
-    fn writeExpanded(self: SingleMessagePresentation, w: anytype, theme: *const themes.Theme) !void {
+    fn writeExpanded(self: SingleMessagePresentation, w: *std.io.Writer, theme: *const themes.Theme) !void {
         const short_filename = self.short_filename orelse std.fs.path.basename(self.filename);
 
         var tl: TitleLine = .{};
@@ -132,8 +132,8 @@ pub const SingleMessagePresentation = struct {
 
             try theme.border.writeAll(w, tl.content());
             try theme.border.writeAll(w, aligned.fmtLast("", .{}));
-            try w.writeBytesNTimes(" ", self.span.column_number);
-            try w.writeBytesNTimes("^", @min(
+            try w.splatByteAll(' ', self.span.column_number);
+            try w.splatByteAll('^', @min(
                 self.span.len,
                 // This is our very basic way of handling multiple lines for now:
                 // We only show the first line.
@@ -211,32 +211,32 @@ pub const PresenterOptions = struct {
 ///
 pub const Presenter = struct {
     options: PresenterOptions,
-    buffered_writer: std.io.BufferedWriter(4096, std.fs.File.Writer),
+    writer: std.fs.File.Writer,
 
     /// Initializes a presenter with a specific set of options.
     /// This is a more advanced option and most of the time `autoDetect` does exactly what you want.
-    pub fn init(file: std.fs.File, options: PresenterOptions) Presenter {
+    pub fn init(file: std.fs.File, buf: []u8, options: PresenterOptions) Presenter {
         return Presenter{
-            .buffered_writer = .{ .unbuffered_writer = file.writer() },
+            .writer = file.writer(buf),
             .options = options,
         };
     }
 
     /// Initializes a presenter which outputs to stderr with sensible defaults (see also `PresenterOptions.autoDetect`).
-    pub fn autoDetect() Presenter {
-        const file = std.io.getStdErr();
-        return init(file, PresenterOptions.autoDetect(file, themes.default_theme));
+    pub fn autoDetect(buf: []u8) Presenter {
+        const file = std.fs.File.stderr();
+        return init(file, buf, PresenterOptions.autoDetect(file, themes.default_theme));
     }
 
     /// Presents a a single message.
     pub fn present(self: *Presenter, item: anytype) !void {
-        const w = self.buffered_writer.writer();
+        const w = &self.writer.interface;
         if (self.options.expand) {
             try item.writeExpanded(w, self.options.theme);
         } else {
             try item.writeSimple(w, self.options.theme);
         }
-        try self.buffered_writer.flush();
+        try w.flush();
     }
 };
 
@@ -303,22 +303,26 @@ fn testCase(case: TestCase, f: *const fn (*Scanner) Scanner.Error!void) !void {
         var result = std.ArrayList(u8).init(testing.allocator);
         defer result.deinit();
 
-        try item.writeExpanded(result.writer(), themes.noop_theme);
+        var w = result.writer().adaptToNewApi();
+
+        try item.writeExpanded(&w.new_interface, themes.noop_theme);
         try testing.expectEqualStrings(case.expanded, result.items);
 
         result.clearRetainingCapacity();
-        try item.writeExpanded(result.writer(), themes.default_theme);
+        try item.writeExpanded(&w.new_interface, themes.default_theme);
     }
 
     {
         var result = std.ArrayList(u8).init(testing.allocator);
         defer result.deinit();
 
-        try item.writeSimple(result.writer(), themes.noop_theme);
+        var w = result.writer().adaptToNewApi();
+
+        try item.writeSimple(&w.new_interface, themes.noop_theme);
         try testing.expectEqualStrings(case.simple, result.items);
 
         result.clearRetainingCapacity();
-        try item.writeSimple(result.writer(), themes.default_theme);
+        try item.writeSimple(&w.new_interface, themes.default_theme);
     }
 }
 
