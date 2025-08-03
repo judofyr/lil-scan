@@ -17,15 +17,13 @@ pub fn build(b: *std.Build) !void {
 
     const mod = b.addModule("lil-scan", .{
         .root_source_file = b.path("src/root.zig"),
-    });
-
-    const lib = b.addStaticLibrary(.{
-        .name = "lil-scan",
-        // In this case the main source file is merely a path, however, in more
-        // complicated build scripts, this could be a generated file.
-        .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
+    });
+
+    const lib = b.addLibrary(.{
+        .name = "lil-scan",
+        .root_module = mod,
     });
 
     // This declares intent for the library to be installed into the standard
@@ -44,9 +42,7 @@ pub fn build(b: *std.Build) !void {
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
     const lib_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/root.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = mod,
     });
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
@@ -76,18 +72,22 @@ pub fn build(b: *std.Build) !void {
 
     const demo_err = b.addExecutable(.{
         .name = "lil-demo-err",
-        .root_source_file = b.path("examples/demo-err.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("examples/demo-err.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     demo_err.root_module.addImport("lil-scan", mod);
     b.installArtifact(demo_err);
 
     const demo_calc = b.addExecutable(.{
         .name = "lil-demo-calc",
-        .root_source_file = b.path("examples/demo-calc.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("examples/demo-calc.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     demo_calc.root_module.addImport("lil-scan", mod);
     b.installArtifact(demo_calc);
