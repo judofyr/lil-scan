@@ -43,11 +43,10 @@ const Sidebar = struct {
     }
 
     pub fn fmtWithBorder(self: *Sidebar, border: []const u8, comptime format: []const u8, args: anytype) Output {
-        var fbs = std.io.fixedBufferStream(self.buf[self.width..(self.buf.len - border.len)]);
-        var w = fbs.writer();
+        var w = std.Io.Writer.fixed(self.buf[self.width..(self.buf.len - border.len)]);
         w.print(format, args) catch {};
 
-        const text_width = fbs.getWritten().len;
+        const text_width = w.buffered().len;
         for (text_width..self.width) |idx| {
             self.buf[idx] = ' ';
         }
@@ -66,7 +65,7 @@ fn severityText(sev: diag.Severity) []const u8 {
     };
 }
 
-fn writeDiagnosticTitle(w: *std.io.Writer, theme: *const themes.Theme, msg: *const diag.Message, span: diag.Span, filename: []const u8) !void {
+fn writeDiagnosticTitle(w: *std.Io.Writer, theme: *const themes.Theme, msg: *const diag.Message, span: diag.Span, filename: []const u8) !void {
     try theme.severityTitle.withColor(theme.severityColor(msg.severity)).writeAll(w, severityText(msg.severity));
     if (msg.code) |code| {
         try w.writeAll(" ");
@@ -95,7 +94,7 @@ pub const SingleMessagePresentation = struct {
     short_filename: ?[]const u8 = null,
 
     /// Writes a simple, single line of the information.
-    fn writeSimple(self: SingleMessagePresentation, w: *std.io.Writer, theme: *const themes.Theme) !void {
+    fn writeSimple(self: SingleMessagePresentation, w: *std.Io.Writer, theme: *const themes.Theme) !void {
         try writeDiagnosticTitle(w, theme, self.msg, self.span, self.filename);
         try w.writeAll(": ");
         try w.writeAll(self.msg.text);
@@ -103,7 +102,7 @@ pub const SingleMessagePresentation = struct {
     }
 
     /// Writes an expanded
-    fn writeExpanded(self: SingleMessagePresentation, w: *std.io.Writer, theme: *const themes.Theme) !void {
+    fn writeExpanded(self: SingleMessagePresentation, w: *std.Io.Writer, theme: *const themes.Theme) !void {
         const short_filename = self.short_filename orelse std.fs.path.basename(self.filename);
 
         var tl: TitleLine = .{};
@@ -300,29 +299,25 @@ fn testCase(case: TestCase, f: *const fn (*Scanner) Scanner.Error!void) !void {
     };
 
     {
-        var result = std.ArrayList(u8).init(testing.allocator);
-        defer result.deinit();
+        var allocating: std.Io.Writer.Allocating = .init(testing.allocator);
+        defer allocating.deinit();
 
-        var w = result.writer().adaptToNewApi();
+        try item.writeExpanded(&allocating.writer, themes.noop_theme);
+        try testing.expectEqualStrings(case.expanded, allocating.written());
 
-        try item.writeExpanded(&w.new_interface, themes.noop_theme);
-        try testing.expectEqualStrings(case.expanded, result.items);
-
-        result.clearRetainingCapacity();
-        try item.writeExpanded(&w.new_interface, themes.default_theme);
+        allocating.shrinkRetainingCapacity(0);
+        try item.writeExpanded(&allocating.writer, themes.default_theme);
     }
 
     {
-        var result = std.ArrayList(u8).init(testing.allocator);
-        defer result.deinit();
+        var allocating: std.Io.Writer.Allocating = .init(testing.allocator);
+        defer allocating.deinit();
 
-        var w = result.writer().adaptToNewApi();
+        try item.writeSimple(&allocating.writer, themes.noop_theme);
+        try testing.expectEqualStrings(case.simple, allocating.written());
 
-        try item.writeSimple(&w.new_interface, themes.noop_theme);
-        try testing.expectEqualStrings(case.simple, result.items);
-
-        result.clearRetainingCapacity();
-        try item.writeSimple(&w.new_interface, themes.default_theme);
+        allocating.shrinkRetainingCapacity(0);
+        try item.writeSimple(&allocating.writer, themes.default_theme);
     }
 }
 
